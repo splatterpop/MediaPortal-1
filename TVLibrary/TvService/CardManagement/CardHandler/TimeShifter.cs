@@ -19,6 +19,7 @@
 #endregion
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using TvLibrary.Implementations;
 using TvLibrary.Interfaces;
@@ -45,7 +46,7 @@ namespace TvService
     private readonly ChannelLinkageGrabber _linkageGrabber;
 
     private DateTime _timeAudioEvent;
-    private DateTime _timeVideoEvent;
+    private DateTime _timeVideoEvent;    
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TimeShifter"/> class.
@@ -334,7 +335,7 @@ namespace TvService
           return TvResult.CardIsDisabled;
         }
 
-        lock (this)
+        //lock (this)
         {
           try
           {
@@ -354,8 +355,8 @@ namespace TvService
               DiskSpaceNeeded *= 1000000 * 2; // Convert to bytes; 2 times of timeshiftMaxFileSize
               if (FreeDiskSpace < DiskSpaceNeeded)
                 // TimeShifter need at least this free disk space otherwise, it will not start.
-              {
-                Stop(ref user);
+              {                
+                Stop(ref user);                
                 return TvResult.NoFreeDiskSpace;
               }
             }
@@ -370,14 +371,14 @@ namespace TvService
           catch (Exception)
           {
             Log.Error("card: unable to connect to slave controller at:{0}",
-                      _cardHandler.DataBaseCard.ReferencedServer().HostName);
+                      _cardHandler.DataBaseCard.ReferencedServer().HostName);            
             Stop(ref user);
             return TvResult.UnknownError;
           }
 
           ITvCardContext context = _cardHandler.Card.Context as ITvCardContext;
           if (context == null)
-          {
+          {            
             Stop(ref user);
             return TvResult.UnknownChannel;
           }
@@ -482,7 +483,7 @@ namespace TvService
     /// <summary>
     /// Stops the time shifting.
     /// </summary>
-    /// <returns></returns>
+    /// <returns></returns>    
     public bool Stop(ref IUser user)
     {
       try
@@ -499,7 +500,7 @@ namespace TvService
         Log.Write("card {2}: StopTimeShifting user:{0} sub:{1}", user.Name, user.SubChannel,
                   _cardHandler.Card.Name);
 
-        lock (this)
+        //lock (this)
         {
           try
           {
@@ -521,7 +522,7 @@ namespace TvService
             return false;
           }
 
-          ITvCardContext context = _cardHandler.Card.Context as ITvCardContext;
+          ITvCardContext context = _cardHandler.Card.Context as ITvCardContext;          
           if (context == null)
             return true;
           if (_linkageScannerEnabled)
@@ -546,44 +547,6 @@ namespace TvService
         Log.Write(ex);
       }
       return false;
-    }
-
-    /// <summary>
-    /// Start timeshifting on the card
-    /// </summary>
-    /// <param name="user">User</param>
-    /// <param name="fileName">Name of the file.</param>
-    /// <returns>TvResult indicating whether method succeeded</returns>
-    public TvResult CardTimeShift(ref IUser user, ref string fileName)
-    {
-      try
-      {
-        if (_cardHandler.DataBaseCard.Enabled == false)
-          return TvResult.CardIsDisabled;
-
-        try
-        {
-          RemoteControl.HostName = _cardHandler.DataBaseCard.ReferencedServer().HostName;
-          if (!RemoteControl.Instance.CardPresent(_cardHandler.DataBaseCard.IdCard))
-            return TvResult.CardIsDisabled;
-        }
-        catch (Exception)
-        {
-          Log.Error("card: unable to connect to slave controller at:{0}",
-                    _cardHandler.DataBaseCard.ReferencedServer().HostName);
-          return TvResult.UnknownError;
-        }
-
-        Log.WriteFile("card: CardTimeShift {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
-        if (IsTimeShifting(ref user))
-          return TvResult.Succeeded;
-        return Start(ref user, ref fileName);
-      }
-      catch (Exception ex)
-      {
-        Log.Write(ex);
-        return TvResult.UnknownError;
-      }
     }
 
     /// <summary>

@@ -19,6 +19,9 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using TvLibrary;
 using TvLibrary.Implementations;
 using TvLibrary.Implementations.DVB;
@@ -35,6 +38,16 @@ namespace TvService
   {
     private readonly ITvCardHandler _cardHandler;
 
+    private readonly List<ICardTuneReservationTicket> _reservationsForTune = new List<ICardTuneReservationTicket>();
+    private readonly List<ICardStopReservationTicket> _reservationsForStop = new List<ICardStopReservationTicket>();
+
+    private ICardTuneReservationTicket _activeCardTuneReservationTicket = null;
+    private readonly object _cardReservationsLock = new object();    
+    
+    private CardTuneState _cardTuneState = CardTuneState.Idle;
+    private CardStopState _cardStopState = CardStopState.Idle;
+    
+
     /// <summary>
     /// Initializes a new instance of the <see cref="CardTuner"/> class.
     /// </summary>
@@ -44,6 +57,38 @@ namespace TvService
       _cardHandler = cardHandler;
     }
 
+    public object CardReservationsLock
+    {
+      get { return _cardReservationsLock; }
+    }
+
+    public CardTuneState CardTuneState
+    {
+      get { return _cardTuneState; }
+      set { _cardTuneState = value; }
+    }
+
+    public ICardTuneReservationTicket ActiveCardTuneReservationTicket
+    {
+      get { return _activeCardTuneReservationTicket; }
+      set { _activeCardTuneReservationTicket = value; }
+    }
+
+    public List<ICardTuneReservationTicket> ReservationsForTune
+    {
+      get { return _reservationsForTune; }
+    }
+
+    public CardStopState CardStopState
+    {
+      get { return _cardStopState; }
+      set { _cardStopState = value; }
+    }
+
+    public List<ICardStopReservationTicket> ReservationsForStop
+    {
+      get { return _reservationsForStop; }
+    }        
 
     /// <summary>
     /// Scans the the specified card to the channel.
@@ -287,7 +332,7 @@ namespace TvService
       if (_cardHandler.Card.SubChannels.Length > 0)
       {
         if (IsTunedToTransponder(channel) == false)
-        {
+        {          
           if (context.IsOwner(user) || user.IsAdmin)
           {
             Log.Debug("card: to different transponder");
@@ -323,6 +368,7 @@ namespace TvService
                 }
               }
             }
+            _cardHandler.Card.FreeSubChannel(user.SubChannel);
           }
           else
           {
@@ -332,7 +378,7 @@ namespace TvService
           }
         }
         else // same transponder, free previous subchannel before tuning..
-        {
+        {          
           _cardHandler.Card.FreeSubChannel(user.SubChannel);
         }
       }
@@ -359,7 +405,7 @@ namespace TvService
 
       result = TvResult.Succeeded;
       return true;
-    }
+    }    
 
     public event OnAfterTuneDelegate OnAfterTuneEvent;
 
@@ -383,7 +429,7 @@ namespace TvService
     /// <param name="user">User</param>
     /// <param name="channel">The channel.</param>
     /// <param name="dbChannel">The db channel</param>
-    /// <returns>TvResult indicating whether method succeeded</returns>
+    /// <returns>TvResult indicating whether method succeeded</returns>    
     public TvResult CardTune(ref IUser user, IChannel channel, Channel dbChannel)
     {
       try

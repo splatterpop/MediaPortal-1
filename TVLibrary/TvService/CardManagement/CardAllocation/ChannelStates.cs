@@ -27,7 +27,6 @@ using TvLibrary.Interfaces;
 using TvLibrary.Log;
 using TvControl;
 using TvDatabase;
-using TvLibrary.Channels;
 
 namespace TvService
 {
@@ -38,32 +37,7 @@ namespace TvService
     public ChannelStates(TvBusinessLayer businessLayer, TVController controller) : base(businessLayer, controller)
     {
       LogEnabled = false;
-    }
-
-    private static void UpdateChannelStateUserBasedOnCardOwnership(ITvCardHandler tvcard, IList<IUser> allUsers,
-                                                                   Channel ch)
-    {
-      for (int i = 0; i < allUsers.Count; i++)
-      {
-        IUser user = allUsers[i];
-        if (user.IsAdmin)
-        {
-          continue;
-        }
-        if (!tvcard.Users.IsOwner(user))
-        {
-          //no
-          //Log.Info("Controller:    card:{0} type:{1} is tuned to different transponder", cardId, tvcard.Type);
-          //allow admin users like the scheduler to use this card anyway          
-          UpdateChannelStateUser(user, ChannelState.nottunable, ch.IdChannel);
-        }
-        else
-        {
-          UpdateChannelStateUser(user, ChannelState.tunable, ch.IdChannel);
-        }
-        allUsers[i] = user;
-      }
-    }
+    }    
 
     private static void UpdateChannelStateUsers(IList<IUser> allUsers, ChannelState chState, int channelId)
     {
@@ -151,8 +125,7 @@ namespace TvService
     }
 
     [MethodImpl(MethodImplOptions.Synchronized)]
-    private void DoSetChannelStates(Dictionary<int, ITvCardHandler> cards, ICollection<Channel> channels,
-                                    bool checkTransponders, IList<IUser> allUsers, TVController tvController)
+    private void DoSetChannelStates(Dictionary<int, ITvCardHandler> cards, ICollection<Channel> channels, IList<IUser> allUsers, TVController tvController)
     {
       Stopwatch stopwatch = Stopwatch.StartNew();
       try
@@ -163,9 +136,7 @@ namespace TvService
         if (allUsers == null || allUsers.Count == 0)
         {
           return; // no users, no point in continuing.
-        }
-
-        TvBusinessLayer layer = new TvBusinessLayer();
+        }        
 
         Dictionary<int, ChannelState> TSandRecStates = null;
 
@@ -194,9 +165,7 @@ namespace TvService
           foreach (IChannel tuningDetail in tuningDetails)
           {
             foreach (ITvCardHandler cardHandler in cardHandlers)
-            {
-              int cardId = cardHandler.DataBaseCard.IdCard;
-
+            {                            
               //check if card is enabled
               if (!cardHandler.DataBaseCard.Enabled)
               {
@@ -229,10 +198,8 @@ namespace TvService
               }
 
               //ok card could be used to tune to this channel
-              //now we check if its free...                              
-              int decryptLimit = cardHandler.DataBaseCard.DecryptLimit;
-              CheckTransponderAllUsers(ch, allUsers, cards, cardHandler, decryptLimit, cardId, tuningDetail,
-                                       checkTransponders);
+              //now we check if its free...                                            
+              CheckTransponderAllUsers(ch, allUsers, cardHandler, tuningDetail);
             } //while card end
           } //foreach tuningdetail end              
 
@@ -325,7 +292,6 @@ namespace TvService
       {
         List<int> keysToDelete = new List<int>();
 
-
         foreach (KeyValuePair<int, ChannelState> kvp in user.ChannelStates)
         {
           if (kvp.Value == ChannelState.tunable)
@@ -344,7 +310,7 @@ namespace TvService
     private static void UpdateRecOrTSChannelStateForUsers(Channel ch, IList<IUser> allUsers,
                                                           Dictionary<int, ChannelState> TSandRecStates)
     {
-      ChannelState cs = ChannelState.tunable;
+      ChannelState cs;
       TSandRecStates.TryGetValue(ch.IdChannel, out cs);
 
       if (cs == ChannelState.recording)
@@ -357,10 +323,8 @@ namespace TvService
       }
     }
 
-    private void CheckTransponderAllUsers(Channel ch, IList<IUser> allUsers, Dictionary<int, ITvCardHandler> cards,
-                                          ITvCardHandler tvcard,
-                                          int decryptLimit, int cardId, IChannel tuningDetail,
-                                          bool checkTransponders)
+    private void CheckTransponderAllUsers(Channel ch, IList<IUser> allUsers, ITvCardHandler tvcard,
+                                                 IChannel tuningDetail)
     {
       for (int i = 0; i < allUsers.Count; i++)
       {
@@ -372,23 +336,23 @@ namespace TvService
           continue;
         }
 
-        bool checkTransponder = CheckTransponder(user, tvcard, decryptLimit, tvcard.DataBaseCard.IdCard, tuningDetail);
-        if (checkTransponder)
-        {
-          UpdateChannelStateUser(user, ChannelState.tunable, ch.IdChannel);
-        }
-        else
-        {
-          UpdateChannelStateUser(user, ChannelState.nottunable, ch.IdChannel);
-        }
-      } //foreach allusers end                         
+          bool checkTransponder = CheckTransponder( user, tvcard, tuningDetail);
+          if (checkTransponder)
+          {
+            UpdateChannelStateUser(user, ChannelState.tunable, ch.IdChannel);
+          } 
+          else
+          {
+            UpdateChannelStateUser(user, ChannelState.nottunable, ch.IdChannel);
+          }
+        } //foreach allusers end                               
     }
 
     #endregion
 
     #region public members
 
-    public void SetChannelStates(Dictionary<int, ITvCardHandler> cards, IList<Channel> channels, bool checkTransponders,
+    public void SetChannelStates(Dictionary<int, ITvCardHandler> cards, IList<Channel> channels,
                                  TVController tvController)
     {
       if (channels == null)
@@ -399,7 +363,7 @@ namespace TvService
       //call the real work as a thread in order to avoid slower channel changes.
       // find all users      
       IList<IUser> allUsers = GetActiveUsers(cards);
-      ThreadStart starter = delegate { DoSetChannelStates(cards, channels, checkTransponders, allUsers, tvController); };
+      ThreadStart starter = delegate { DoSetChannelStates(cards, channels, allUsers, tvController); };
       Thread setChannelStatesThread = new Thread(starter);
       setChannelStatesThread.Name = "Channel state thread";
       setChannelStatesThread.IsBackground = true;
@@ -413,7 +377,7 @@ namespace TvService
     /// </summary>    
     /// <returns>dictionary containing all channel states of the channels supplied</returns>
     public Dictionary<int, ChannelState> GetChannelStates(Dictionary<int, ITvCardHandler> cards, IList<Channel> channels,
-                                                          ref IUser user, bool checkTransponders,
+                                                          ref IUser user,
                                                           TVController tvController)
     {
       if (channels == null)
@@ -424,7 +388,7 @@ namespace TvService
       List<IUser> allUsers = new List<IUser>();
       allUsers.Add(user);
 
-      DoSetChannelStates(cards, channels, checkTransponders, allUsers, tvController);
+      DoSetChannelStates(cards, channels, allUsers, tvController);
 
       if (allUsers.Count > 0)
       {

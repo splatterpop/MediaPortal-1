@@ -263,6 +263,7 @@ namespace TvLibrary.Implementations.DVB
 
       try
       {
+        //FreePreviousChannelMDPlugs();
         int pmtPid;
         if (!BeforeTune(channel, ref subChannelId, out pmtPid))
         {
@@ -273,6 +274,8 @@ namespace TvLibrary.Implementations.DVB
           return null;
         }
         AfterTune(subChannelId, false);
+
+        _previousChannel = channel;
 
         Log.Log.WriteFile("ss2:tune done:{0:X}", pmtPid);
         return _mapSubChannels[subChannelId];

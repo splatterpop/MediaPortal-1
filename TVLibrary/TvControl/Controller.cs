@@ -832,14 +832,36 @@ namespace TvControl
     /// <returns>true if succeeded</returns>
     TvResult Scan(ref IUser user, IChannel channel, int idChannel);
 
+
     /// <summary>
-    /// Tune the specified card to the channel.
+    /// Tunes the the specified card to the channel.
     /// </summary>
     /// <param name="user">The user.</param>
     /// <param name="channel">The channel.</param>
     /// <param name="idChannel">The id channel.</param>
     /// <returns>true if succeeded</returns>
     TvResult Tune(ref IUser user, IChannel channel, int idChannel);
+
+    /// <summary>
+    /// Tunes the the specified card to the channel.
+    /// </summary>
+    /// <param name="user">The user.</param>
+    /// <param name="channel">The channel.</param>
+    /// <param name="idChannel">The id channel.</param>
+    /// <param name="ticket">card reservation ticket</param>    
+    /// <returns>true if succeeded</returns>
+    TvResult Tune(ref IUser user, IChannel channel, int idChannel, object ticket);
+
+    /// <summary>
+    /// Tune the specified card to the channel.
+    /// </summary>
+    /// <param name="user">The user.</param>
+    /// <param name="channel">The channel.</param>
+    /// <param name="idChannel">The id channel.</param>
+    /// <param name="ticket">reservation ticket</param>
+    /// <param name="cardResImpl">card reservation impl.</param>
+    /// <returns>true if succeeded</returns>
+    TvResult Tune(ref IUser user, IChannel channel, int idChannel, object ticket, object cardResImpl);
 
     /// <summary>
     /// Determines whether the card is currently tuned to the transponder
@@ -1054,5 +1076,7 @@ namespace TvControl
     void GetStreamQualityCounters(IUser user, out int totalTSpackets, out int discontinuityCounter);
 
     #endregion
+
+    
   }
 }

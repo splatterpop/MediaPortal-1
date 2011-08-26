@@ -233,15 +233,15 @@ namespace TvService
     /// Method which returns the database schedule id for the card
     /// </summary>
     /// <param name="cardId">id of the card</param>
-    /// <param name="ChannelId">Channel id</param>
+    /// <param name="channelId">Channel id</param>
     /// <returns>id of schedule the card is recording or -1 if its not recording</returns>
-    public int GetRecordingScheduleForCard(int cardId, int ChannelId)
+    public int GetRecordingScheduleForCard(int cardId, int channelId)
     {
       //reverse loop, since items can be removed during iteration
       for (int i = _recordingsInProgressList.Count - 1; i >= 0; i--)
       {
         RecordingDetail rec = _recordingsInProgressList[i];
-        if (rec.CardInfo.Id == cardId && rec.Channel.IdChannel == ChannelId)
+        if (rec.CardInfo.Id == cardId && rec.Channel.IdChannel == channelId)
         {
           return rec.Schedule.IdSchedule;
         }
@@ -474,8 +474,8 @@ namespace TvService
       VirtualCard card;
 
       if (schedule.Canceled != Schedule.MinSchedule ||
-          IsRecordingSchedule(schedule.IdSchedule, out card) ||
-          schedule.IsSerieIsCanceled(new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0)))
+        IsRecordingSchedule(schedule.IdSchedule, out card) ||
+        schedule.IsSerieIsCanceled(new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0)))
       {
         isScheduleReadyForRecording = false;
       }
@@ -921,82 +921,204 @@ namespace TvService
     /// </summary>
     /// <param name="recording">Recording instance</param>
     /// <returns>true if recording is started, otherwise false</returns>
-    private void StartRecord(RecordingDetail RecDetail)
+    private void StartRecord(RecordingDetail recDetail)
     {
-      IUser user = RecDetail.User;
+      IUser user = recDetail.User;
 
-      Log.Write("Scheduler: Time to record {0} {1}-{2} {3}", RecDetail.Channel.DisplayName,
-                DateTime.Now.ToShortTimeString(), RecDetail.EndTime.ToShortTimeString(),
-                RecDetail.Schedule.ProgramName);
-      //get list of all cards we can use todo the recording      
-      ICardAllocation allocation = new AdvancedCardAllocation(_layer, _tvController);
-      TvResult tvResult;
-      List<CardDetail> freeCards = allocation.GetFreeCardsForChannel(_tvController.CardCollection,
-                                                                     RecDetail.Channel, ref user, out tvResult);
+      Log.Write("Scheduler: Time to record {0} {1}-{2} {3}", recDetail.Channel.DisplayName,
+                DateTime.Now.ToShortTimeString(), recDetail.EndTime.ToShortTimeString(),
+                recDetail.Schedule.ProgramName);
+      //get list of all cards we can use todo the recording     
 
-      int maxCards = 0;
+      List<CardDetail> freeCards;
+      bool startRecordOnFreeCard = StartRecordOnFreeCard(recDetail, ref user, out freeCards);
 
-      bool recSucceded = false;
-      if (freeCards.Count > 0)
+      if (!startRecordOnFreeCard)
       {
-        //Free cards are those cards not being used by anyone
-        maxCards = GetMaxCards(freeCards);
-        Log.Write("scheduler: try max {0} of {1} FREE cards for recording", maxCards, freeCards.Count);
-        recSucceded = FindFreeCardAndStartRecord(RecDetail, user, freeCards, maxCards);
+        StartRecordOnAvailCard(recDetail, user, freeCards);
+      }
+    }
+
+    private void StartRecordOnAvailCard(RecordingDetail recDetail, IUser user, List<CardDetail> freeCards)
+    {      
+      AdvancedCardAllocationStatic cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, _tvController);
+      List<CardDetail> availCardsForReservation = cardAllocationStatic.GetAvailableCardsForChannel(_tvController.CardCollection,
+                                                                                                   recDetail.Channel, ref user);
+      StartRecordOnCard(recDetail, ref user, out freeCards, availCardsForReservation, freeCards, new CardReservationRecAvail(_tvController));
+    }
+    
+    private bool StartRecordOnCard(
+      RecordingDetail recDetail, 
+		  ref IUser user,
+      out List<CardDetail> cards,
+      List<CardDetail> cardsForReservation,
+      List<CardDetail> ignoreCards,
+      CardReservationRecBase cardResImpl)
+    {
+      cards = null;
+      bool recSucceded = false;
+
+      bool isFreeRec = cardResImpl is CardReservationRecFree;
+      string logStr;
+      if (isFreeRec)
+      {
+        logStr = "free";
       }
       else
       {
-        Log.Write("scheduler: no free cards found for recording.");
+        logStr = "available";
       }
-      if (!recSucceded)
+
+      if (cardsForReservation.Count == 0)
       {
-        List<CardDetail> availCards = allocation.GetAvailableCardsForChannel(_tvController.CardCollection,
-                                                                             RecDetail.Channel, ref user);
-
-        if (availCards.Count > 0)
+        //no free cards available
+        Log.Write("scheduler: no " + logStr + " cards found for recording during initial card allocation.");
+      }
+      else
+      {
+        List<ICardTuneReservationTicket> tickets = null;
+        try
         {
-          //Avail cards are ALL cards, even if used by another timeshifting user (not scheduler users).
-          //These cards are used as a last option.
-          maxCards = GetMaxCards(availCards);
-          Log.Write("scheduler: try max {0} of {1} AVAILABLE cards for recording", maxCards, availCards.Count);
+          List<CardDetail> cardsIterated = new List<CardDetail>();
 
-          //remove all cards previously cards tried for recording during the "free cards" iteration.
-          foreach (var cardDetail in freeCards)
+          int cardIterations = 0;
+          bool moreCardsAvailable = true;
+          while (moreCardsAvailable && !recSucceded)
           {
-            availCards.RemoveAll(t => t.Id == cardDetail.Id);
-          }
+            tickets = CardReservationHelper.RequestCardReservations(user, cardsForReservation, _tvController,
+                                                                    cardResImpl, cardsIterated);
 
-          recSucceded = FindAvailCardAndStartRecord(RecDetail, user, availCards, maxCards);
+            if (tickets.Count == 0)
+            {
+              //no free cards available
+              Log.Write("scheduler: no " + logStr + " card reservation(s) could be made.");
+              break;
+            }
+            else
+            {
+              AdvancedCardAllocationTicket cardAllocationTicket = new AdvancedCardAllocationTicket(_layer, _tvController,
+                                                                                                   tickets);
+              if (isFreeRec)
+              {
+                TvResult tvResult;
+                cards = cardAllocationTicket.UpdateFreeCardsForChannelBasedOnTicket(_tvController.CardCollection,
+                                                                                    cardsForReservation,
+                                                                                    user, out tvResult);
+              }
+              else
+              {
+                cards = cardAllocationTicket.UpdateAvailableCardsForChannelBasedOnTicket(cardsForReservation);
+              }
+
+              CardReservationHelper.CancelCardReservationsExceedingMaxConcurrentTickets(tickets, cards, _tvController.CardCollection);
+              CardReservationHelper.CancelCardReservationsNotFoundInFreeCards(cardsForReservation, tickets,
+                                                                              cards,
+                                                                              _tvController.CardCollection);
+
+              int maxCards = GetMaxCards(cards);
+              CardReservationHelper.CancelCardReservationsBasedOnMaxCardsLimit(tickets, cards, maxCards,
+                                                                               _tvController.CardCollection);
+
+              UpdateCardsIterated(cardsIterated, cards); //keep track of what cards have been iterated here.
+
+              if (cards.Count > 0)
+              {
+                //Free cards are those cards not being used by anyone                
+                Log.Write("scheduler: try max {0} of {1} " + logStr + " cards for recording", maxCards, cards.Count);
+                cardIterations += cards.Count;
+
+                //remove all cards previously cards tried for recording during the "free cards" iteration.
+                foreach (var cardDetail in ignoreCards)
+                {
+                  cards.RemoveAll(t => t.Id == cardDetail.Id);
+                }
+
+                if (isFreeRec)
+                {
+                  recSucceded = FindFreeCardAndStartRecord(recDetail, user, cards, maxCards, tickets, cardResImpl);
+                }
+                else
+                {
+                  recSucceded = FindAvailCardAndStartRecord(recDetail, user, cards, maxCards, tickets, cardResImpl); 
+                }                
+
+                moreCardsAvailable = _maxRecordFreeCardsToTry == 0 || _maxRecordFreeCardsToTry > cardIterations;
+              }
+              else
+              {
+                Log.Write("scheduler: no " + logStr  + " cards found for recording.");
+                break;
+              }
+            }
+          } // end of while
         }
-        else
+        finally
         {
-          Log.Write("scheduler: no available cards found for recording.");
+          CardReservationHelper.CancelAllCardReservations(tickets, _tvController.CardCollection);
+        }
+      }
+      return recSucceded;
+    }
+
+
+    private bool StartRecordOnFreeCard(RecordingDetail recDetail, ref IUser user, out List<CardDetail> freeCards)
+    {
+      AdvancedCardAllocationStatic cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, _tvController);
+      TvResult tvResult;
+      List<CardDetail> freeCardsForReservation = cardAllocationStatic.GetFreeCardsForChannel(_tvController.CardCollection, recDetail.Channel, ref user, out tvResult);
+      return StartRecordOnCard(recDetail, ref user, out freeCards, freeCardsForReservation, new List<CardDetail>(), new CardReservationRecFree(_tvController));
+    }
+    
+    private void UpdateCardsIterated(List<CardDetail> freeCardsIterated, List<CardDetail> freeCards)
+    {
+      foreach (CardDetail card in freeCards)
+      {
+        if (!freeCardsIterated.Contains(card))
+        {
+          freeCardsIterated.Add(card);
         }
       }
     }
 
-    private bool FindAvailCardAndStartRecord(RecordingDetail RecDetail, IUser user, List<CardDetail> cards, int maxCards)
+    private bool FindAvailCardAndStartRecord(RecordingDetail recDetail, IUser user, List<CardDetail> cards, int maxCards, List<ICardTuneReservationTicket> tickets, CardReservationRecBase cardResImpl)
     {
       bool result = false;
-      //keep tuning each card until we are succesful                
-      for (int i = 0; i < maxCards; i++)
+      //keep tuning each card until we are succesful                   
+
+      for (int k = 0; k < maxCards; k++)
       {
-        CardDetail cardInfo = null;
-        try
+        ITvCardHandler tvCardHandler;
+        CardDetail cardInfo = GetCardInfoForRecording(recDetail, cards);
+        if (_tvController.CardCollection.TryGetValue(cardInfo.Id, out tvCardHandler))
         {
-          cardInfo = HijackCardForRecording(RecDetail.Schedule.RecommendedCard, cards);
-          result = SetupAndStartRecord(RecDetail, ref user, cardInfo);
-          if (result)
+          ICardTuneReservationTicket ticket = tickets.Find(t => t.CardId == cardInfo.Id);
+
+          if (ticket != null)
           {
-            break;
+            try
+            {
+              cardInfo = HijackCardForRecording(recDetail.Schedule.RecommendedCard, cards, ticket);
+              result = SetupAndStartRecord(recDetail, ref user, cardInfo, ticket, cardResImpl);
+              if (result)
+              {
+                break;
+              }
+
+            }
+            catch (Exception ex)
+            {
+              CardReservationHelper.CancelCardReservationAndRemoveTicket(tvCardHandler, tickets);
+              Log.Write(ex);
+              StopFailedRecord(recDetail);
+            }
+          }
+          else
+          {
+            Log.Write("scheduler: could not find available cardreservation on card:{0}", cardInfo.Id);
           }
         }
-        catch (Exception ex)
-        {
-          Log.Write(ex);
-          StopFailedRecord(RecDetail);
-        }
         Log.Write("scheduler: recording failed, lets try next available card.");
+        CardReservationHelper.CancelCardReservationAndRemoveTicket(tvCardHandler, tickets);
         if (cardInfo != null && cards.Contains(cardInfo))
         {
           cards.Remove(cardInfo);
@@ -1005,28 +1127,42 @@ namespace TvService
       return result;
     }
 
-    private bool FindFreeCardAndStartRecord(RecordingDetail RecDetail, IUser user, List<CardDetail> cards, int maxCards)
+    private bool FindFreeCardAndStartRecord(RecordingDetail recDetail, IUser user, List<CardDetail> cards, int maxCards, List<ICardTuneReservationTicket> tickets, CardReservationRecBase cardResImpl)
     {
       bool result = false;
       //keep tuning each card until we are succesful                
       for (int i = 0; i < maxCards; i++)
       {
         CardDetail cardInfo = null;
+        ITvCardHandler tvCardHandler = null;
         try
         {
-          cardInfo = GetCardInfoForRecording(RecDetail, ref user, cards);
-          result = SetupAndStartRecord(RecDetail, ref user, cardInfo);
-          if (result)
+          cardInfo = GetCardInfoForRecording(recDetail, cards);
+          if (_tvController.CardCollection.TryGetValue(cardInfo.Id, out tvCardHandler))
           {
-            break;
+            ICardTuneReservationTicket ticket = tickets.Find(t => t.CardId == cardInfo.Id);
+            if (ticket != null)
+            {
+              result = SetupAndStartRecord(recDetail, ref user, cardInfo, ticket, cardResImpl);
+              if (result)
+              {
+                break;
+              }
+            }
+            else
+            {
+              Log.Write("scheduler: could not find free cardreservation on card:{0}", cardInfo.Id);
+            }
           }
         }
         catch (Exception ex)
         {
+          CardReservationHelper.CancelCardReservationAndRemoveTicket(tvCardHandler, tickets);
           Log.Write(ex);
-          StopFailedRecord(RecDetail);
+          StopFailedRecord(recDetail);
         }
         Log.Write("scheduler: recording failed, lets try next available card.");
+        CardReservationHelper.CancelCardReservationAndRemoveTicket(tvCardHandler, tickets);
         if (cardInfo != null && cards.Contains(cardInfo))
         {
           cards.Remove(cardInfo);
@@ -1035,25 +1171,25 @@ namespace TvService
       return result;
     }
 
-    private bool SetupAndStartRecord(RecordingDetail RecDetail, ref IUser user, CardDetail cardInfo)
+    private bool SetupAndStartRecord(RecordingDetail recDetail, ref IUser user, CardDetail cardInfo, ICardTuneReservationTicket ticket, CardReservationRecBase cardResImpl)
     {
       bool result = false;
       if (cardInfo != null)
       {
         user.CardId = cardInfo.Id;
-        StartRecordingNotification(RecDetail);
+        StartRecordingNotification(recDetail);
         SetupRecordingFolder(cardInfo);
-        if (StartRecordingOnDisc(RecDetail, ref user, cardInfo))
+        if (StartRecordingOnDisc(recDetail, ref user, cardInfo, ticket, cardResImpl))
         {
-          CreateRecording(RecDetail);
+          CreateRecording(recDetail);
           try
           {
-            RecDetail.User.CardId = user.CardId;
-            SetRecordingProgramState(RecDetail);
-            _recordingsInProgressList.Add(RecDetail);
-            RecordingStartedNotification(RecDetail);
-            SetupQualityControl(RecDetail);
-            WriteMatroskaFile(RecDetail);
+            recDetail.User.CardId = user.CardId;
+            SetRecordingProgramState(recDetail);
+            _recordingsInProgressList.Add(recDetail);
+            RecordingStartedNotification(recDetail);
+            SetupQualityControl(recDetail);
+            WriteMatroskaFile(recDetail);
           }
           catch (Exception ex)
           {
@@ -1063,7 +1199,7 @@ namespace TvService
 
           Log.Write("Scheduler: recList: count: {0} add scheduleid: {1} card: {2}",
                     _recordingsInProgressList.Count,
-                    RecDetail.Schedule.IdSchedule, RecDetail.CardInfo.Card.Name);
+                    recDetail.Schedule.IdSchedule, recDetail.CardInfo.Card.Name);
           result = true;
         }
       }
@@ -1117,12 +1253,10 @@ namespace TvService
       }
     }
 
-    private CardDetail GetCardInfoForRecording(RecordingDetail RecDetail, ref IUser user, List<CardDetail> freeCards)
+    private CardDetail GetCardInfoForRecording(RecordingDetail recDetail, List<CardDetail> freeCards)
     {
-      CardDetail cardInfo;
-
       //first try to start recording using the recommended card
-      cardInfo = FindRecommendedCard(RecDetail.Schedule.RecommendedCard, freeCards);
+      CardDetail cardInfo = FindRecommendedCard(recDetail.Schedule.RecommendedCard, freeCards);
 
       if (cardInfo == null)
       {
@@ -1173,16 +1307,16 @@ namespace TvService
       return cardInfo;
     }
 
-    private CardDetail HijackCardForRecording(int recommendedCard, List<CardDetail> availableCards)
+    private CardDetail HijackCardForRecording(int recommendedCard, List<CardDetail> availableCards, ICardTuneReservationTicket ticket)
     {
       CardDetail cardInfo = null;
       if ((_layer.GetSetting("scheduleroverlivetv", "yes").Value == "yes"))
       {
-        cardInfo = HijackCardTimeshiftingOnSameTransponder(availableCards, recommendedCard, cardInfo);
+        cardInfo = HijackCardTimeshiftingOnSameTransponder(availableCards, recommendedCard, cardInfo, ticket);
 
         if (cardInfo == null)
         {
-          cardInfo = HijackCardTimeshiftingOnDifferentTransponder(availableCards, cardInfo);
+          cardInfo = HijackCardTimeshiftingOnDifferentTransponder(availableCards, cardInfo, ticket);
         }
         if (cardInfo == null)
         {
@@ -1197,42 +1331,17 @@ namespace TvService
       return cardInfo;
     }
 
-    private CardDetail HijackCardTimeshiftingOnDifferentTransponder(List<CardDetail> availableCards, CardDetail cardInfo)
+    private CardDetail HijackCardTimeshiftingOnDifferentTransponder(List<CardDetail> availableCards, CardDetail cardInfo, ICardTuneReservationTicket ticket)
     {
       foreach (CardDetail cardDetail in availableCards)
       {
         if (!cardDetail.SameTransponder)
-        {
-          IUser[] tmpUsers = _tvController.GetUsersForCard(cardDetail.Id);
-          Boolean canKickAll = true;
-          for (int i = 0; i < tmpUsers.Length; i++)
-          {
-            IUser tmpUser = tmpUsers[i];
-            if (_tvController.IsRecording(ref tmpUser))
-            {
-              canKickAll = false;
-            }
-          }
+        {                              
+          bool canKickAll = CanKickAllUsersOnTransponder(ticket);
           if (canKickAll)
           {
             cardInfo = cardDetail;
-            Log.Write(
-              "Scheduler : card is not tuned to the same transponder and not recording, kicking all users. record on card:{0} priority:{1}",
-              cardInfo.Id, cardInfo.Card.Priority);
-            for (int i = 0; i < tmpUsers.Length; i++)
-            {
-              IUser tmpUser = tmpUsers[i];
-              if (_tvController.IsTimeShifting(ref tmpUser))
-              {
-                Log.Write(
-                  "Scheduler : kicking user:{0}",
-                  tmpUser.Name);
-                _tvController.StopTimeShifting(ref tmpUser, TvStoppedReason.RecordingStarted);
-              }
-              Log.Write(
-                "Scheduler : card is tuned to the same transponder but not free. record on card:{0} priority:{1}, kicking user:{2}",
-                cardInfo.Id, cardInfo.Card.Priority, tmpUser.Name);
-            }
+            KickAllUsersOnTransponder(cardDetail, ticket);
             break;
           }
         }
@@ -1240,32 +1349,41 @@ namespace TvService
       return cardInfo;
     }
 
-    private CardDetail HijackCardTimeshiftingOnSameTransponder(List<CardDetail> availableCards, int recommendedCard,
-                                                               CardDetail cardInfo)
+    private void KickAllUsersOnTransponder(CardDetail cardDetail, ICardTuneReservationTicket ticket) 
+    {
+      List<IUser> tsUsers = ticket.TimeshiftingUsers;      
+      Log.Write(
+        "Scheduler : card is not tuned to the same transponder and not recording, kicking all users. record on card:{0} priority:{1}",
+        cardDetail.Id, cardDetail.Card.Priority);
+      for (int i = 0; i < ticket.TimeshiftingUsers.Count; i++ )
+      {
+        IUser timeshiftingUser = ticket.TimeshiftingUsers[i];
+        Log.Write(
+          "Scheduler : kicking user:{0}",
+          timeshiftingUser.Name);
+        _tvController.StopTimeShifting(ref timeshiftingUser, TvStoppedReason.RecordingStarted);
+
+        Log.Write(
+          "Scheduler : card is tuned to the same transponder but not free. record on card:{0} priority:{1}, kicking user:{2}",
+          cardDetail.Id, cardDetail.Card.Priority, timeshiftingUser.Name);
+      }
+    }
+
+    private bool CanKickAllUsersOnTransponder(ICardTuneReservationTicket ticket) 
+    {
+      List<IUser> recUsers = ticket.RecordingUsers;
+      bool canKickAll = (recUsers.Count == 0);      
+      return canKickAll;
+    }   
+
+    private CardDetail HijackCardTimeshiftingOnSameTransponder(List<CardDetail> availableCards, int recommendedCard, CardDetail cardInfo, ICardTuneReservationTicket ticket)
     {
       availableCards.Sort(new RecordingCardDetailComparer(recommendedCard));
       foreach (CardDetail cardDetail in availableCards)
       {
         if (cardDetail.SameTransponder)
         {
-          IUser[] tmpUsers = _tvController.GetUsersForCard(cardDetail.Id);
-
-          for (int i = 0; i < tmpUsers.Length; i++)
-          {
-            IUser tmpUser = tmpUsers[i];
-            if (!_tvController.IsRecording(ref tmpUser))
-            {
-              if (_tvController.IsTimeShifting(ref tmpUser))
-              {
-                Log.Write(
-                  "Scheduler : card is tuned to the same transponder but not free. record on card:{0} priority:{1}, kicking user:{2}",
-                  cardDetail.Id, cardDetail.Card.Priority, tmpUser.Name);
-                _tvController.StopTimeShifting(ref tmpUser, TvStoppedReason.RecordingStarted);
-              }
-              cardInfo = cardDetail;
-              break;
-            }
-          }
+          KickUserOnSameTransponder(cardDetail, ticket, ref cardInfo);
           if (cardInfo != null)
           {
             break;
@@ -1275,6 +1393,25 @@ namespace TvService
       return cardInfo;
     }
 
+    private void KickUserOnSameTransponder(CardDetail cardDetail, ICardTuneReservationTicket ticket, ref CardDetail cardInfo) 
+    {      
+      bool canKickAllUsersOnTransponder = CanKickAllUsersOnTransponder(ticket);
+
+      if (canKickAllUsersOnTransponder)
+      {
+        for (int i = 0; i < ticket.TimeshiftingUsers.Count; i++)
+        {
+          IUser timeshiftingUser = ticket.TimeshiftingUsers[i];
+          Log.Write(
+            "Scheduler : card is tuned to the same transponder but not free. record on card:{0} priority:{1}, kicking user:{2}",
+            cardDetail.Id, cardDetail.Card.Priority, timeshiftingUser.Name);
+          _tvController.StopTimeShifting(ref timeshiftingUser, TvStoppedReason.RecordingStarted);
+
+          cardInfo = cardDetail;
+          break;
+        }  
+      }      
+    }
 
     private void RecordingStartedNotification(RecordingDetail RecDetail)
     {
@@ -1304,46 +1441,20 @@ namespace TvService
                                                         Environment.SpecialFolder.CommonApplicationData));
     }
 
-    private bool StartRecordingOnDisc(RecordingDetail RecDetail, ref IUser user, CardDetail cardInfo)
+    private bool StartRecordingOnDisc(RecordingDetail recDetail, ref IUser user, CardDetail cardInfo, ICardTuneReservationTicket ticket, CardReservationRecBase cardResImpl)
     {
       bool startRecordingOnDisc = false;
       _tvController.EpgGrabberEnabled = false;
       Log.Write("Scheduler : record, first tune to channel");
-      TvResult tuneResult = _tvController.Tune(ref user, cardInfo.TuningDetail, RecDetail.Channel.IdChannel);
-
+      
+      cardResImpl.CardInfo = cardInfo;
+      cardResImpl.RecDetail = recDetail;      
+      
+      TvResult tuneResult = _tvController.Tune(ref user, cardInfo.TuningDetail, recDetail.Channel.IdChannel, ticket, cardResImpl);      
       startRecordingOnDisc = (tuneResult == TvResult.Succeeded);
 
-      if (startRecordingOnDisc)
-      {
-        if (_tvController.SupportsSubChannels(cardInfo.Card.IdCard) == false)
-        {
-          Log.Write("Scheduler : record, now start timeshift");
-          string timeshiftFileName = String.Format(@"{0}\live{1}-{2}.ts", cardInfo.Card.TimeShiftFolder, cardInfo.Id,
-                                                   user.SubChannel);
-          startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartTimeShifting(ref user, ref timeshiftFileName));
-        }
-
-        if (startRecordingOnDisc)
-        {
-          RecDetail.MakeFileName(cardInfo.Card.RecordingFolder);
-          RecDetail.CardInfo = cardInfo;
-          Log.Write("Scheduler : record to {0}", RecDetail.FileName);
-          string fileName = RecDetail.FileName;
-          startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartRecording(ref user, ref fileName, false, 0));
-
-          if (startRecordingOnDisc)
-          {
-            RecDetail.FileName = fileName;
-            RecDetail.RecordingStartDateTime = DateTime.Now;
-          }
-        }
-      }
-      if (!startRecordingOnDisc && _tvController.AllCardsIdle)
-      {
-        _tvController.EpgGrabberEnabled = true;
-      }
       return startRecordingOnDisc;
-    }
+    }    
 
     private void CreateRecording(RecordingDetail RecDetail)
     {
@@ -1412,6 +1523,7 @@ namespace TvService
         MatroskaTagHandler.WriteTag(System.IO.Path.ChangeExtension(fileName, ".xml"), info);
       }
     }
+
 
 
     /// <summary>
@@ -1561,6 +1673,7 @@ namespace TvService
         }
         return first.CompareTo(second);
       }
+
     }
 
     #endregion

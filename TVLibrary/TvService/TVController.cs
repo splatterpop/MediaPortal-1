@@ -19,27 +19,25 @@
 #endregion
 
 using System;
-using System.Threading;
-using System.IO;
 using System.Collections.Generic;
-using System.Xml;
+using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Diagnostics;
 using System.Reflection;
-using TvLibrary;
-using TvLibrary.Channels;
-using TvLibrary.Implementations;
-using TvLibrary.Implementations.DVB;
-using TvLibrary.Interfaces;
-using TvLibrary.Implementations.Analog;
-using TvLibrary.Implementations.Hybrid;
-using TvLibrary.Epg;
-using TvLibrary.Log;
-using TvLibrary.Streaming;
+using System.Threading;
+using System.Xml;
 using TvControl;
 using TvDatabase;
 using TvEngine.Events;
+using TvLibrary;
+using TvLibrary.Epg;
+using TvLibrary.Implementations;
+using TvLibrary.Implementations.Analog;
+using TvLibrary.Implementations.Hybrid;
+using TvLibrary.Interfaces;
+using TvLibrary.Log;
+using TvLibrary.Streaming;
 
 namespace TvService
 {
@@ -58,6 +56,7 @@ namespace TvService
 
     #region variables
 
+    private TvBusinessLayer _layer = new TvBusinessLayer();
     private ICardAllocation _cardAllocation;
 
     /// <summary>
@@ -181,7 +180,7 @@ namespace TvService
     /// </summary>
     public TVController()
     {
-      _cardAllocation = new AdvancedCardAllocation(new TvBusinessLayer(), this);
+      _cardAllocation = new AdvancedCardAllocation(_layer, this);
     }
 
     public Dictionary<int, ITvCardHandler> CardCollection
@@ -562,10 +561,8 @@ namespace TvService
         }
         _isMaster = _ourServer.IsMaster;
 
-        //enumerate all tv cards in this pc...
-        TvBusinessLayer layer = new TvBusinessLayer();
-
-        _maxFreeCardsToTry = Int32.Parse(layer.GetSetting("timeshiftMaxFreeCardsToTry", "0").Value);
+        //enumerate all tv cards in this pc...        
+        _maxFreeCardsToTry = Int32.Parse(_layer.GetSetting("timeshiftMaxFreeCardsToTry", "0").Value);
 
         for (int i = 0; i < _localCardCollection.Cards.Count; ++i)
         {
@@ -584,7 +581,7 @@ namespace TvService
           {
             // card is not yet in the database, so add it
             Log.Info("Controller: add card:{0}", _localCardCollection.Cards[i].Name);
-            layer.AddCard(_localCardCollection.Cards[i].Name, _localCardCollection.Cards[i].DevicePath, _ourServer);
+            _layer.AddCard(_localCardCollection.Cards[i].Name, _localCardCollection.Cards[i].DevicePath, _ourServer);
           }
         }
         //notify log about cards from the database which are removed from the pc
@@ -599,7 +596,7 @@ namespace TvService
             {
               if (dbsCard.DevicePath == _localCardCollection.Cards[cardNumber].DevicePath)
               {
-                Card cardDB = layer.GetCardByDevicePath(_localCardCollection.Cards[cardNumber].DevicePath);
+                Card cardDB = _layer.GetCardByDevicePath(_localCardCollection.Cards[cardNumber].DevicePath);
 
                 bool cardEnabled = cardDB.Enabled;
                 bool cardPresent = _localCardCollection.Cards[cardNumber].CardPresent;
@@ -866,13 +863,8 @@ namespace TvService
           Log.Info("Controller: scheduler stopped...");
         }
         //stop the epg grabber
-        if (_epgGrabber != null)
-        {
-          Log.Info("Controller: stop epg grabber...");
-          _epgGrabber.Stop();
-          _epgGrabber = null;
-          Log.Info("Controller: epg stopped...");
-        }
+        StopEPGgrabber();
+        _epgGrabber = null;        
 
         //clean up the tv cards
         FreeCards();
@@ -1622,7 +1614,7 @@ namespace TvService
         {
           return TvResult.CardIsDisabled;
         }
-        FreeSubChannel(ref user, channel);
+        FireZapChannelEvent(ref user, channel);
 
         TvResult res = cardHandler.Tuner.Scan(ref user, channel, idChannel);
 
@@ -1643,6 +1635,54 @@ namespace TvService
     /// <returns>true if succeeded</returns>
     public TvResult Tune(ref IUser user, IChannel channel, int idChannel)
     {
+      ITvCardHandler tvCardHandler;
+      TvResult result = TvResult.UnknownError;
+
+      if (CardCollection.TryGetValue(user.CardId, out tvCardHandler))
+      {
+        ICardTuneReservationTicket ticket = null;
+        ICardReservation cardreservationImpl = new CardReservationTimeshifting(this);
+        try
+        {
+          ticket = cardreservationImpl.RequestCardTuneReservation(tvCardHandler, channel, user);
+          result = Tune(ref user, channel, idChannel, ticket); 
+        }
+        catch(Exception)
+        {
+          CardReservationHelper.CancelCardReservation(tvCardHandler, ticket);
+          throw;
+        }        
+      }
+
+      return result;
+    }
+
+     /// <summary>
+    /// Tunes the the specified card to the channel.
+    /// </summary>
+    /// <param name="user">The user.</param>
+    /// <param name="channel">The channel.</param>
+    /// <param name="idChannel">The id channel.</param>
+    /// <param name="ticket">card reservation ticket</param>
+    /// <param name="cardResImpl"></param>
+    /// <returns>true if succeeded</returns>
+    public TvResult Tune(ref IUser user, IChannel channel, int idChannel, object ticket)
+     {
+       ICardReservation cardResImpl = new CardReservationTimeshifting(this);
+       return Tune(ref user, channel, idChannel, ticket, cardResImpl);
+     }
+
+    /// <summary>
+    /// Tunes the the specified card to the channel.
+    /// </summary>
+    /// <param name="user">The user.</param>
+    /// <param name="channel">The channel.</param>
+    /// <param name="idChannel">The id channel.</param>
+    /// <param name="ticket">card reservation ticket</param>
+    /// <param name="cardResImpl"></param>
+    /// <returns>true if succeeded</returns>
+    public TvResult Tune(ref IUser user, IChannel channel, int idChannel, object ticket, object cardResImpl)
+    {
       if (ValidateTvControllerParams(user) || ValidateTvControllerParams(channel))
       {
         return TvResult.UnknownError;
@@ -1655,11 +1695,16 @@ namespace TvService
         {
           return TvResult.CardIsDisabled;
         }
-        FreeSubChannel(ref user, channel);
+        FireZapChannelEvent(ref user, channel);
 
-        TvResult res = cardHandler.Tuner.Tune(ref user, channel, idChannel);
-
-        return res;
+        ICardTuneReservationTicket resTicket = ticket as ICardTuneReservationTicket;
+        ICardReservation resCardResImpl = cardResImpl as ICardReservation;
+        if (resTicket != null && resCardResImpl != null)
+        {
+          TvResult res = resCardResImpl.Tune(cardHandler, ref user, channel, idChannel, resTicket);
+          return res;
+        }
+        return TvResult.UnknownError;
       }
       finally
       {
@@ -1674,44 +1719,8 @@ namespace TvService
     /// <param name="channel">The channel.</param>
     /// <param name="idChannel">The id channel.</param>
     /// <returns>true if succeeded</returns>
-    private void FreeSubChannel(ref IUser user, IChannel channel)
+    private void FireZapChannelEvent(ref IUser user, IChannel channel)
     {
-      int cardId = user.CardId;
-      ITvCardHandler cardHandler = _cards[cardId];
-
-      if (cardHandler.Card.SubChannels.Length > 0)
-      {
-        bool isRec = cardHandler.Recorder.IsRecordingAnyUser();
-        if (!isRec)
-        {
-          ITvCardContext context = (ITvCardContext)cardHandler.Card.Context;
-          IUser[] users = context.Users;
-
-          foreach (IUser userObj in users)
-          {
-            if (userObj.Name.Equals(user.Name))
-            {
-              if (userObj.SubChannel > -1)
-              {
-                cardHandler.Card.FreeSubChannelContinueGraph(userObj.SubChannel);
-              }
-              break;
-            }
-          }
-        }
-      }
-
-      //on tune we need to remember to remove the previous subchannel before tuning the next one.
-      // but only if the subchannel is free, meaning not recording and no other users attached.          
-      if (user.SubChannel > 0 && cardHandler.Card.SubChannels.Length > -1)
-      {
-        bool isRec = cardHandler.Recorder.IsRecordingAnyUser();
-        if (!isRec)
-        {
-          cardHandler.Card.FreeSubChannelContinueGraph(user.SubChannel);
-        }
-      }
-
       Fire(this, new TvServerEventArgs(TvServerEventType.StartZapChannel, GetVirtualCard(user), (User)user, channel));
     }
 
@@ -1833,10 +1842,7 @@ namespace TvService
         }
 
         Fire(this, new TvServerEventArgs(TvServerEventType.StartTimeShifting, GetVirtualCard(user), (User)user));
-        if (_epgGrabber != null)
-        {
-          _epgGrabber.Stop();
-        }
+        StopEPGgrabber();        
 
         bool isTimeShifting;
         try
@@ -1878,6 +1884,12 @@ namespace TvService
             }
           }
         }
+
+        if (result == TvResult.Succeeded)
+        {
+          Log.Write("Controller: StartTimeShifting started on card:{0} to {1}", user.CardId, fileName);
+        }
+
         return result;
       }
       catch (Exception ex)
@@ -1939,33 +1951,33 @@ namespace TvService
       if (ValidateTvControllerParams(user))
         return false;
       try
-      {
+      {        
         int cardId = user.CardId;
-        if (_cards[cardId].DataBaseCard.Enabled == false)
-          return true;
-        //if (!CardPresent(cardId)) return true;
+        ITvCardHandler tvcard = _cards[cardId];
+        if (tvcard.DataBaseCard.Enabled == false)
+          return true;        
 
-        if (false == _cards[cardId].IsLocal)
+        if (false == tvcard.IsLocal)
         {
           try
           {
             if (IsGrabbingEpg(cardId))
-            {
-              _epgGrabber.Stop();
+            {              
+              StopEPGgrabber();        
               // we need this, otherwise tvservice will hang in the event stoptimeshifting is called by heartbeat timeout function
             }
-            RemoteControl.HostName = _cards[cardId].DataBaseCard.ReferencedServer().HostName;
+            RemoteControl.HostName = tvcard.DataBaseCard.ReferencedServer().HostName;
             return RemoteControl.Instance.StopTimeShifting(ref user);
           }
           catch (Exception)
           {
             Log.Error("card: unable to connect to slave controller at:{0}",
-                      _cards[cardId].DataBaseCard.ReferencedServer().HostName);
+                      tvcard.DataBaseCard.ReferencedServer().HostName);
             return false;
           }
         }
 
-        HybridCard hybridCard = _cards[cardId].Card as HybridCard;
+        HybridCard hybridCard = tvcard.Card as HybridCard;
         if (hybridCard != null)
         {
           if (!hybridCard.IsCardIdActive(cardId))
@@ -1973,57 +1985,53 @@ namespace TvService
             return true;
           }
         }
-
-
-        if (false == _cards[cardId].TimeShifter.IsTimeShifting(ref user))
+        
+        if (false == tvcard.TimeShifter.IsTimeShifting(ref user))
           return true;
         Fire(this, new TvServerEventArgs(TvServerEventType.EndTimeShifting, GetVirtualCard(user), (User)user));
 
-        if (_cards[cardId].Recorder.IsRecording(ref user))
+        if (tvcard.Recorder.IsRecording(ref user))
           return true;
 
-        Log.Write("Controller: StopTimeShifting {0}", cardId);
-        lock (this)
-        {
-          if (IsGrabbingEpg(cardId))
-          {
-            _epgGrabber.Stop();
-            // we need this, otherwise tvservice will hang in the event stoptimeshifting is called by heartbeat timeout function
-          }
-          bool result = false;
-          int subChannel = user.SubChannel;
-          if (_cards[cardId].TimeShifter.Stop(ref user))
-          {
-            result = true;
-
-            //we must not stop streaming if subchannel is still in use.
-
-            ITvCardContext context = (ITvCardContext)_cards[user.CardId].Card.Context;
-            if (!context.ContainsUsersForSubchannel(user.SubChannel))
-            {
-              Log.Write("Controller:Timeshifting stopped on card:{0}", cardId);
-              _streamer.Remove(String.Format("stream{0}.{1}", cardId, subChannel));
-            }
-          }
-
-          if (_epgGrabber != null && AllCardsIdle)
-          {
-            _epgGrabber.Start();
-          }
-
-          if (result)
-          {
-            UpdateChannelStatesForUsers();
-          }
-
-          return result;
-        }
+        Log.Write("Controller: StopTimeShifting {0}", cardId);       
+        return DoStopTimeShifting(ref user, cardId);                
       }
       catch (Exception ex)
       {
         Log.Write(ex);
       }
+                  
       return false;
+    }
+
+    private bool DoStopTimeShifting(ref IUser user, int cardId) 
+    {
+      if (IsGrabbingEpg(cardId))
+      {
+        StopEPGgrabber();        
+        // we need this, otherwise tvservice will hang in the event stoptimeshifting is called by heartbeat timeout function
+      }
+      ITvCardHandler tvcard = _cards[cardId];      
+      ICardStopReservationTicket ticket = CardReservationHelper.RequestAndWaitForCardStopReservation(tvcard, user);
+      bool stopped = false;
+      if (ticket != null)
+      {
+        stopped = CardReservationHelper.Stop(tvcard, ref user, ticket);
+        if (stopped)
+        {
+          //we must not stop streaming if subchannel is still in use.
+          ITvCardContext context = (ITvCardContext)_cards[user.CardId].Card.Context;
+          if (!context.ContainsUsersForSubchannel(user.SubChannel))
+          {
+            Log.Write("Controller:Timeshifting stopped on card:{0}", cardId);
+            int subChannel = user.SubChannel;
+            _streamer.Remove(String.Format("stream{0}.{1}", cardId, subChannel));
+          }
+          StartEPGgrabber();
+          UpdateChannelStatesForUsers();
+        }
+      }
+      return stopped;
     }
 
     /// <summary>
@@ -2038,10 +2046,7 @@ namespace TvService
     {
       if (ValidateTvControllerParams(user))
         return TvResult.UnknownError;
-      if (_epgGrabber != null)
-      {
-        _epgGrabber.Stop();
-      }
+      StopEPGgrabber();        
       TvResult result = _cards[user.CardId].Recorder.Start(ref user, ref fileName, contentRecording, startTime);
 
       if (result == TvResult.Succeeded)
@@ -2050,10 +2055,7 @@ namespace TvService
       }
       else
       {
-        if (_epgGrabber != null && AllCardsIdle)
-        {
-          _epgGrabber.Start();
-        }
+        StartEPGgrabber();
       }
 
       return result;
@@ -2074,10 +2076,7 @@ namespace TvService
       {
         UpdateChannelStatesForUsers();
       }
-      if (_epgGrabber != null && AllCardsIdle)
-      {
-        _epgGrabber.Start();
-      }
+      StartEPGgrabber();
       return result;
     }
 
@@ -2587,222 +2586,214 @@ namespace TvService
       {
         card = null;
         return TvResult.UnknownError;
-      }
-
-      string intialTimeshiftingFilename = "";
+      }      
 
       VirtualCard initialCard = null;
 
       if (user.CardId != -1)
         initialCard = GetVirtualCard(user);
 
-      if (initialCard != null && initialCard.TimeShiftFileName != null)
-      {
-        intialTimeshiftingFilename = initialCard.TimeShiftFileName;
-      }
+      string intialTimeshiftingFilename = GetIntialTimeshiftingFilename(initialCard);
 
       Channel channel = Channel.Retrieve(idChannel);
       Log.Write("Controller: StartTimeShifting {0} {1}", channel.DisplayName, channel.IdChannel);
       card = null;
-      if (_epgGrabber != null)
-      {
-        _epgGrabber.Stop();
-      }
+      StopEPGgrabber();
       IUser userCopy = null;
+      List<ICardTuneReservationTicket> tickets = null;
+      CardReservationTimeshifting cardResImpl = new CardReservationTimeshifting(this);
+      int failedCardId = -1;
       try
       {
         TvResult result;
-        List<CardDetail> freeCards = _cardAllocation.GetFreeCardsForChannel(_cards, channel, ref user, out result);
-        if (freeCards.Count == 0)
+        AdvancedCardAllocationStatic cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, this);
+        List<CardDetail> freeCardsForReservation = cardAllocationStatic.GetFreeCardsForChannel(_cards, channel, ref user, out result);
+        if (!HasFreeCardsForReservation(freeCardsForReservation, ref result))
         {
-          //no free cards available
-          Log.Write("Controller: StartTimeShifting failed:{0}", result);
-
-          if (_epgGrabber != null && AllCardsIdle)
-          {
-            _epgGrabber.Start();
-          }
           return result;
         }
 
-        int maxCards;
-        if (_maxFreeCardsToTry == 0)
-        {
-          maxCards = freeCards.Count;
-        }
-        else
-        {
-          maxCards = Math.Min(_maxFreeCardsToTry, freeCards.Count);
+        List<CardDetail> freeCardsIterated = new List<CardDetail>();
+        
+        int cardsIterated = 0;
+        bool moreCardsAvailable = true;
+        while (moreCardsAvailable)
+        {          
+          tickets = CardReservationHelper.RequestCardReservations(user, freeCardsForReservation, this, cardResImpl, freeCardsIterated);
 
-          if (maxCards > freeCards.Count)
+          if (!HasTickets(tickets, ref result))
           {
-            maxCards = freeCards.Count;
+            return result;
           }
-        }
 
-        Log.Write("Controller: try max {0} of {1} cards for timeshifting", maxCards, freeCards.Count);
-        TvBusinessLayer layer = new TvBusinessLayer();
-        //keep tuning each card until we are succesful                
-        for (int i = 0; i < maxCards; i++)
-        {
-          int nrOfOtherUsersTimeshiftingOnCard = 0;
-          if (i > 0)
-          {
-            Log.Write("Controller: Timeshifting failed, lets try next available card.");
-            cardChanged = (maxCards > 1);
-          }
-          userCopy = new User(user.Name, user.IsAdmin);
+          AdvancedCardAllocationTicket cardAllocationTicket = new AdvancedCardAllocationTicket(_layer, this, tickets);
+          List<CardDetail> freeCards = cardAllocationTicket.UpdateFreeCardsForChannelBasedOnTicket(_cards,
+                                                                                                   freeCardsForReservation,
+                                                                                                   user, out result);
 
-          CardDetail cardInfo = freeCards[i];
-          userCopy.CardId = cardInfo.Id;
-          if (forceCardId && user.CardId != cardInfo.Id)
-          {
-            continue;
-          }
-          IChannel tuneChannel = cardInfo.TuningDetail;
+          
+          CardReservationHelper.CancelCardReservationsExceedingMaxConcurrentTickets(tickets, freeCards, _cards);
+          CardReservationHelper.CancelCardReservationsNotFoundInFreeCards(freeCardsForReservation, tickets, freeCards, _cards);
 
-          //setup folders
-          if (cardInfo.Card.RecordingFolder == String.Empty)
+          int maxCards = GetMaxCards(freeCards);
+          CardReservationHelper.CancelCardReservationsBasedOnMaxCardsLimit(tickets, freeCards, maxCards, _cards);
+
+          UpdateFreeCardsIterated(freeCardsIterated, freeCards); //keep tracks of what cards have been iterated here.
+
+
+          if (!HasFreeCards(freeCards, ref result))
           {
-            cardInfo.Card.RecordingFolder = String.Format(@"{0}\Team MediaPortal\MediaPortal TV Server\recordings",
-                                                          Environment.GetFolderPath(
-                                                            Environment.SpecialFolder.CommonApplicationData));
-            if (!Directory.Exists(cardInfo.Card.RecordingFolder))
+            return result;
+          }          
+        
+          Log.Write("Controller: try max {0} of {1} cards for timeshifting", maxCards, freeCards.Count);
+          //keep tuning each card until we are succesful                   
+          for (int i = 0; i < maxCards; i++)
+          {
+            if (!moreCardsAvailable)
             {
-              Log.Write("Controller: creating recording folder {0} for card {0}", cardInfo.Card.RecordingFolder,
-                        cardInfo.Card.Name);
-              Directory.CreateDirectory(cardInfo.Card.RecordingFolder);
+              break;
             }
-          }
-          if (cardInfo.Card.TimeShiftFolder == String.Empty)
-          {
-            cardInfo.Card.TimeShiftFolder = String.Format(
-              @"{0}\Team MediaPortal\MediaPortal TV Server\timeshiftbuffer",
-              Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
-            if (!Directory.Exists(cardInfo.Card.TimeShiftFolder))
+            userCopy = new User(user.Name, user.IsAdmin);            
+
+            CardDetail cardInfo = freeCards[i];
+            userCopy.CardId = cardInfo.Id;
+            if (forceCardId && user.CardId != cardInfo.Id)
             {
-              Log.Write("Controller: creating timeshifting folder {0} for card {0}", cardInfo.Card.TimeShiftFolder,
-                        cardInfo.Card.Name);
-              Directory.CreateDirectory(cardInfo.Card.TimeShiftFolder);
+              failedCardId = cardInfo.Id;
+              result = TvResult.AllCardsBusy;
+              continue;
             }
-          }
+            IChannel tuneChannel = cardInfo.TuningDetail;
 
-          //todo : if the owner is changing channel to a new transponder, then kick any leeching users.
-          ITvCardHandler tvcard = _cards[cardInfo.Id];
-          bool isTS = tvcard.TimeShifter.IsAnySubChannelTimeshifting;
-          bool skipCard = false;
-          if (isTS)
-          {
-            IUser[] users = tvcard.Users.GetUsers();
-            for (int j = users.Length - 1; j > -1; j--)
+            SetupTimeShiftingFolders(cardInfo);
+
+            ITvCardHandler tvcard = _cards[cardInfo.Id];
+            ICardTuneReservationTicket ticket;
+
+            try
             {
-              IUser u = users[j];
-              if (user.Name.Equals(u.Name))
+              ticket = tickets.Find(t => t.CardId == cardInfo.Id);
+              if (ticket == null)
               {
-                continue;
+                Log.Write("Controller: StartTimeShifting - could not find cardreservation on card:{0}",
+                          userCopy.CardId);
+                result = TvResult.AllCardsBusy;
+                failedCardId = cardInfo.Id;
+                continue;                
               }
 
-              IChannel tmpChannel = tvcard.CurrentChannel(ref u);
-
-              if (tmpChannel == null)
+              cardsIterated++;
+              bool isTimeshifting = ticket.IsAnySubChannelTimeshifting;
+              if (isTimeshifting)
               {
-                tvcard.Users.RemoveUser(u);
-                //removing inactive user which shouldnt happen, but atleast its better than having timeshfiting fail.
-                continue;
-              }
-
-              bool isDiffTS = tuneChannel.IsDifferentTransponder(tmpChannel);
-
-              if (isDiffTS)
-              {
-                Log.Write("Controller: kicking leech user {0} off card {1} since owner {2} changed transponder", u.Name,
-                          cardInfo.Card.Name, user.Name);
-                StopTimeShifting(ref u, TvStoppedReason.OwnerChangedTS);
-              }
-              else
-              {
-                DVBBaseChannel dvbBaseChannel = tmpChannel as DVBBaseChannel;
-                if (dvbBaseChannel != null)
-                {
-                  TuningDetail userChannel = layer.GetTuningDetail(dvbBaseChannel);
-                  bool isOnSameChannel = (idChannel == userChannel.IdChannel);
-
-                  if (isOnSameChannel)
+                RemoveInactiveUsers(ticket, tvcard);                
+                if (ticket.IsOwner) //it seems we are the owner
+                {                                    
+                  if (!ticket.IsSameTransponder)
                   {
-                    if (tvcard.Users.IsOwner(userCopy))
+
+                    bool hasRecordingUsers = ticket.RecordingUsers.Exists(t => t.IsAdmin);
+                    if (!hasRecordingUsers)
                     {
-                      if (i < maxCards)
+                      bool existingLeechFoundOnSameCard = ExistingLeechFoundOnSameCard(ticket);
+                      if (existingLeechFoundOnSameCard)
                       {
-                        Log.Write("Controller: skipping card:{0} since other users are present on the same channel.",
-                                  userCopy.CardId);
-                        skipCard = true;
-                        break; //try next card  
+                        bool kickLeechingUsersIfNoMoreCardsAvail = KickLeechingUsersIfNoMoreCardsAvail(tvcard, user,
+                                                                                                       cardInfo, ticket, i,
+                                                                                                       maxCards);
+
+                        bool cardsAvailable = ((i + 1) < maxCards);
+                        if (!kickLeechingUsersIfNoMoreCardsAvail && cardsAvailable)
+                        {
+                          Log.Write(
+                            "Controller: skipping card:{0} since other users are present on the same channel and there are still cards available.",
+                            userCopy.CardId);
+                          //TODO: what if the following cards fail, should we then try and kick the leech user, in order to make room for a tune ?
+                          CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);
+                          failedCardId = cardInfo.Id;
+                          continue;
+                        }
                       }
                     }
                     else
                     {
-                      nrOfOtherUsersTimeshiftingOnCard++;
-                      if (!u.IsAdmin)
-                      {
-                        userCopy.SubChannel = u.SubChannel;
-                      }
+                      Log.Write(
+                            "Controller: skipping card:{0} since is it busy recording.",
+                            userCopy.CardId);
+                      CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);
+                      failedCardId = cardInfo.Id;
+                      continue;
                     }
                   }
                 }
+                else
+                {
+                  bool existingOwnerFoundOnSameChannel = ExistingOwnerFoundOnSameChannel(ticket);
+                  if (existingOwnerFoundOnSameChannel)      
+                  {
+                    InheritSubChannelFromOwner(userCopy, ticket);
+                  }  
+                }                                  
+              }
+
+              //tune to the new channel                  
+              result = CardTune(ref userCopy, tuneChannel, channel, ticket, cardResImpl);
+              if (result != TvResult.Succeeded)
+              {
+                failedCardId = cardInfo.Id;
+                StopTimeShifting(ref userCopy);
+                continue; //try next card            
+              }
+
+              //reset failedCardId incase previous card iteration failed.
+              failedCardId = -1;
+              CardReservationHelper.CancelAllCardReservations(tickets, _cards);
+              Log.Info("control2:{0} {1} {2}", userCopy.Name, userCopy.CardId, userCopy.SubChannel);             
+              card = GetVirtualCard(userCopy);
+              card.NrOfOtherUsersTimeshiftingOnCard = ticket.NumberOfOtherUsersOnSameChannel;              
+              RemoveUserFromOtherCards(card.Id, userCopy);              
+              UpdateChannelStatesForUsers();
+              cardChanged = GetCardChanged(card, intialTimeshiftingFilename);
+            }
+            catch (Exception)
+            {
+              CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);
+              if ((i + 1) < maxCards)
+              {
+                //in case of exception, try next card if available.
+                failedCardId = cardInfo.Id;
+                continue;
+              }
+              throw;
+            }
+            finally
+            {              
+              if (result != TvResult.Succeeded)
+              {
+                moreCardsAvailable = _maxFreeCardsToTry == 0 || _maxFreeCardsToTry > cardsIterated;
+                if (moreCardsAvailable)
+                {
+                  Log.Write("Controller: Timeshifting failed, lets try next available card.");
+                }
+                else
+                {
+                  Log.Write("Controller: Timeshifting failed, no more cards available.");                  
+                }
+                cardChanged = (maxCards > 1);
               }
             }
+            break; //if we made it to the bottom, then we have a successful timeshifting.          
           }
-
-          if (skipCard)
+          if (result == TvResult.Succeeded)
           {
-            continue;
+            break;
           }
-
-          //tune to the new channel                  
-          result = CardTune(ref userCopy, tuneChannel, channel);
-          if (result != TvResult.Succeeded)
-          {
-            user.FailedCardId = userCopy.FailedCardId;
-            StopTimeShifting(ref userCopy);
-            continue; //try next card            
-          }
-          Log.Info("control2:{0} {1} {2}", userCopy.Name, userCopy.CardId, userCopy.SubChannel);
-          if (!IsTimeShifting(ref userCopy))
-          {
-            CleanTimeShiftFiles(cardInfo.Card.TimeShiftFolder,
-                                String.Format("live{0}-{1}.ts", userCopy.CardId, userCopy.SubChannel));
-          }
-          string timeshiftFileName = String.Format(@"{0}\live{1}-{2}.ts", cardInfo.Card.TimeShiftFolder, userCopy.CardId,
-                                                   userCopy.SubChannel);
-
-          //start timeshifting
-          result = StartTimeShifting(ref userCopy, ref timeshiftFileName);
-          if (result != TvResult.Succeeded)
-          {
-            StopTimeShifting(ref userCopy);
-            continue; //try next card
-          }
-          Log.Write("Controller: StartTimeShifting started on card:{0} to {1}", userCopy.CardId, timeshiftFileName);
-          card = GetVirtualCard(userCopy);
-          card.NrOfOtherUsersTimeshiftingOnCard = nrOfOtherUsersTimeshiftingOnCard;
-          RemoveUserFromOtherCards(card.Id, userCopy); //only remove user from other cards if new tuning was a success
-          UpdateChannelStatesForUsers();
-
-          if (card != null && card.TimeShiftFileName != null)
-          {
-            string newTimeshiftingFilename = card.TimeShiftFileName;
-            cardChanged = (intialTimeshiftingFilename != newTimeshiftingFilename);
-          }
-
-          break; //if we made it to the bottom, then we have a successful timeshifting.
-        }
+        } //end of while
 
         if (result != TvResult.Succeeded)
         {
-          if (_epgGrabber != null && AllCardsIdle)
-          {
-            _epgGrabber.Start();
-          }
+          StartEPGgrabber();
         }
 
         return result;
@@ -2811,14 +2802,244 @@ namespace TvService
       {
         if (userCopy != null)
         {
-          user.FailedCardId = userCopy.FailedCardId;
+          failedCardId = userCopy.FailedCardId;
         }
-        if (_epgGrabber != null && AllCardsIdle)
-        {
-          _epgGrabber.Start();
-        }
+        StartEPGgrabber();
         Log.Write(ex);
         return TvResult.UnknownError;
+      }
+      finally
+      {
+        if (failedCardId > 0)
+        {
+          user.FailedCardId = failedCardId;
+        }
+        CardReservationHelper.CancelAllCardReservations(tickets, _cards);        
+      }
+    }
+
+    private void UpdateFreeCardsIterated(List<CardDetail> freeCardsIterated, List<CardDetail> freeCards)
+    {
+      foreach (CardDetail card in freeCards)
+      {
+        if (!freeCardsIterated.Contains(card))
+        {
+          freeCardsIterated.Add(card);
+        }
+      }
+    }
+
+    private bool HasFreeCards(List<CardDetail> freeCards, ref TvResult result)
+    {
+      bool hasFreeCards = (freeCards.Count > 0);
+      if (!hasFreeCards)
+      {
+        //no free cards available
+        result = TvResult.AllCardsBusy;
+        Log.Write("Controller: StartTimeShifting failed:{0}", result);
+        StartEPGgrabber();        
+      }
+      return hasFreeCards;
+    }
+
+    private bool HasTickets(List<ICardTuneReservationTicket> tickets, ref TvResult result)
+    {
+      bool hasTickets = (tickets.Count > 0);
+      if (!hasTickets)
+      {
+        // do not overwite existing tvresult from previous tune iteration.
+        if (result == TvResult.Succeeded)
+        {
+          //no free cards available
+          result = TvResult.AllCardsBusy;
+        }
+        Log.Write("Controller: StartTimeShifting failed:{0} - no card reservation(s) could be made", result);
+        StartEPGgrabber();        
+      }
+      return hasTickets;
+    }
+
+    private bool HasFreeCardsForReservation(List<CardDetail> freeCardsForReservation, ref TvResult result)
+    {
+      bool hasFreeCardsForReservation = (freeCardsForReservation.Count > 0);
+
+      if (!hasFreeCardsForReservation)
+      {
+        //no free cards available
+        result = TvResult.AllCardsBusy;
+        Log.Write("Controller: StartTimeShifting failed:{0} - no cards found during initial card allocation", result);
+        StartEPGgrabber();        
+      }
+
+      return hasFreeCardsForReservation;
+    }
+
+    private void InheritSubChannelFromOwner(IUser userCopy, ICardTuneReservationTicket ticket)
+    {
+      Log.Write("Controller: leech user={0} inherits subch={1}",
+                              userCopy.Name, ticket.OwnerSubchannel);      
+      userCopy.SubChannel = ticket.OwnerSubchannel;      
+    }
+
+  
+
+    private bool ExistingLeechFoundOnSameCard(ICardTuneReservationTicket ticket)
+    {
+      return ((ticket.NumberOfOtherUsersOnCurrentCard > 0)  && ticket.IsOwner);
+    }
+    
+    private bool ExistingOwnerFoundOnSameChannel(ICardTuneReservationTicket ticket)
+    {      
+      return (ticket.OwnerSubchannel > -1);
+    }
+
+    private bool KickLeechingUsersIfNoMoreCardsAvail(ITvCardHandler tvcard, IUser user, CardDetail cardInfo, ICardTuneReservationTicket ticket, int i, int maxCards)
+    {
+      bool kickLeechingUsersIfNoMoreCardsAvail = false;               
+
+      if ((i+1) == maxCards) // only kick users if we have no more cards to choose from
+      {
+        GetUser(tvcard, ref user);        
+        for (int j = ticket.ActiveUsers.Count - 1; j > -1; j--)
+        {
+          IUser activeUser = ticket.ActiveUsers[j];
+          
+          string channelInfo = Convert.ToString(activeUser.IdChannel);
+          if (activeUser.IdChannel > 0)
+          {
+            Channel ch = Channel.Retrieve(activeUser.IdChannel);
+            if (ch != null)
+            {
+              channelInfo = ch.DisplayName;
+            }
+          }
+
+          Log.Write(
+            "Controller: kicking leech user {0} off card {1} on channel {2} (subchannel #{3}) since owner {4} (subchannel #{5}) changed transponder and there are no more cards available",
+            activeUser.Name,
+            cardInfo.Card.Name,
+            channelInfo,
+            activeUser.SubChannel,
+            user.Name,
+            user.SubChannel);
+
+          StopTimeShifting(ref activeUser, TvStoppedReason.OwnerChangedTS);
+          kickLeechingUsersIfNoMoreCardsAvail = true;                                
+        }
+      }
+      return kickLeechingUsersIfNoMoreCardsAvail;
+    }
+
+    private void GetUser(ITvCardHandler tvcard, ref IUser user) {
+      ITvCardContext context = tvcard.Card.Context as ITvCardContext;
+      if (context != null)
+      {
+        context.GetUser(ref user);
+      }
+    }
+
+    private void RemoveInactiveUsers(ICardTuneReservationTicket ticket, ITvCardHandler tvcard)
+    {
+      for (int i = 0; i < ticket.InactiveUsers.Count; i++ )
+      {
+        IUser inactiveUser = ticket.InactiveUsers[i];
+        Log.Debug("controller: RemoveInactiveUsers {0}", inactiveUser.Name);        
+        StopTimeShifting(ref inactiveUser);
+        //removing inactive user which shouldnt happen, but atleast its better than having timeshfiting fail.
+      }
+    }   
+
+    private bool GetCardChanged(VirtualCard card, string intialTimeshiftingFilename)
+    {
+      bool cardChanged = false;
+      if (card != null && card.TimeShiftFileName != null)
+      {
+        string newTimeshiftingFilename = card.TimeShiftFileName;
+        cardChanged = (intialTimeshiftingFilename != newTimeshiftingFilename);
+      }
+      return cardChanged;
+    }
+
+    
+
+    
+
+    
+
+    
+    private string GetIntialTimeshiftingFilename(VirtualCard initialCard)
+    {
+      string intialTimeshiftingFilename = "";
+      if (initialCard != null && initialCard.TimeShiftFileName != null)
+      {
+        intialTimeshiftingFilename = initialCard.TimeShiftFileName;
+      }
+      return intialTimeshiftingFilename;
+    }
+
+    private void StopEPGgrabber()
+    {
+      if (_epgGrabber != null)
+      {
+        Log.Write("Controller: epg stop");
+        _epgGrabber.Stop();
+      }
+    }
+
+    private void StartEPGgrabber()
+    {
+      if (_epgGrabber != null && AllCardsIdle)
+      {
+        Log.Write("Controller: epg start");
+        _epgGrabber.Start();
+      }
+    }
+
+    private int GetMaxCards(List<CardDetail> freeCards)
+    {
+      int maxCards;
+      if (_maxFreeCardsToTry == 0)
+      {
+        maxCards = freeCards.Count;
+      }
+      else
+      {
+        maxCards = Math.Min(_maxFreeCardsToTry, freeCards.Count);
+
+        if (maxCards > freeCards.Count)
+        {
+          maxCards = freeCards.Count;
+        }
+      }
+      return maxCards;
+    }
+
+    private void SetupTimeShiftingFolders(CardDetail cardInfo) 
+    {
+      //setup folders
+      if (cardInfo.Card.RecordingFolder == String.Empty)
+      {
+        cardInfo.Card.RecordingFolder = String.Format(@"{0}\Team MediaPortal\MediaPortal TV Server\recordings",
+                                                      Environment.GetFolderPath(
+                                                        Environment.SpecialFolder.CommonApplicationData));
+        if (!Directory.Exists(cardInfo.Card.RecordingFolder))
+        {
+          Log.Write("Controller: creating recording folder {0} for card {0}", cardInfo.Card.RecordingFolder,
+                    cardInfo.Card.Name);
+          Directory.CreateDirectory(cardInfo.Card.RecordingFolder);
+        }
+      }
+      if (cardInfo.Card.TimeShiftFolder == String.Empty)
+      {
+        cardInfo.Card.TimeShiftFolder = String.Format(
+          @"{0}\Team MediaPortal\MediaPortal TV Server\timeshiftbuffer",
+          Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
+        if (!Directory.Exists(cardInfo.Card.TimeShiftFolder))
+        {
+          Log.Write("Controller: creating timeshifting folder {0} for card {0}", cardInfo.Card.TimeShiftFolder,
+                    cardInfo.Card.Name);
+          Directory.CreateDirectory(cardInfo.Card.TimeShiftFolder);
+        }
       }
     }
 
@@ -2833,7 +3054,7 @@ namespace TvService
     /// </returns>
     public TvResult StartTimeShifting(ref IUser user, int idChannel, out VirtualCard card)
     {
-      bool cardChanged = false;
+      bool cardChanged;
       return StartTimeShifting(ref user, idChannel, out card, false, out cardChanged);
     }
 
@@ -2995,11 +3216,9 @@ namespace TvService
           {
             if (_epgGrabber != null)
             {
-              TvBusinessLayer layer = new TvBusinessLayer();
-              if (layer.GetSetting("idleEPGGrabberEnabled", "yes").Value == "yes")
-              {
-                Log.Write("Controller: epg start");
-                _epgGrabber.Start();
+              if (_layer.GetSetting("idleEPGGrabberEnabled", "yes").Value == "yes")
+              {                
+                StartEPGgrabber();
               }
             }
           }
@@ -3007,11 +3226,10 @@ namespace TvService
           {
             if (_epgGrabber != null)
             {
-              TvBusinessLayer layer = new TvBusinessLayer();
-              if (layer.GetSetting("idleEPGGrabberEnabled", "yes").Value == "yes")
+              if (_layer.GetSetting("idleEPGGrabberEnabled", "yes").Value == "yes")
               {
                 Log.Write("Controller: epg stop");
-                _epgGrabber.Stop();
+                StopEPGgrabber();                
               }
             }
           }
@@ -3393,18 +3611,17 @@ namespace TvService
         return null;
       }
 
-      TvBusinessLayer layer = new TvBusinessLayer();
-      IList<Channel> tvChannelList = layer.GetTVGuideChannelsForGroup(idGroup);
+      IList<Channel> tvChannelList = _layer.GetTVGuideChannelsForGroup(idGroup);
 
       if (tvChannelList == null || tvChannelList.Count == 0)
         return null;
 
       Dictionary<int, ChannelState> channelStatesList = new Dictionary<int, ChannelState>();
-      ChannelStates channelStates = new ChannelStates(layer, this);
+      ChannelStates channelStates = new ChannelStates(_layer, this);
 
       if (channelStates != null)
       {
-        channelStatesList = channelStates.GetChannelStates(_cards, tvChannelList, ref user, true, this);
+        channelStatesList = channelStates.GetChannelStates(_cards, tvChannelList, ref user, this);
       }
 
       return channelStatesList;
@@ -3659,12 +3876,10 @@ namespace TvService
     #region private members
 
     private void UpdateChannelStatesForUsers()
-    {
-      TvBusinessLayer layer = new TvBusinessLayer();
-
+    {      
       //System.Diagnostics.Debugger.Launch();
       // this section makes sure that all users are updated in regards to channel states.      
-      ChannelStates channelStates = new ChannelStates(layer, this);
+      ChannelStates channelStates = new ChannelStates(_layer, this);
 
       if (channelStates != null)
       {
@@ -3682,11 +3897,11 @@ namespace TvService
 
             if (_tvChannelListGroups == null)
             {
-              _tvChannelListGroups = layer.GetTVGuideChannelsForGroup(group.IdGroup);
+              _tvChannelListGroups = _layer.GetTVGuideChannelsForGroup(group.IdGroup);
             }
             else
             {
-              IList<Channel> tvChannelList = layer.GetTVGuideChannelsForGroup(group.IdGroup);
+              IList<Channel> tvChannelList = _layer.GetTVGuideChannelsForGroup(group.IdGroup);
 
               foreach (Channel ch in tvChannelList)
               {
@@ -3700,7 +3915,7 @@ namespace TvService
           }
         }
 
-        channelStates.SetChannelStates(_cards, _tvChannelListGroups, true, this);
+        channelStates.SetChannelStates(_cards, _tvChannelListGroups, this);
       }
     }
 
@@ -3769,21 +3984,36 @@ namespace TvService
     /// <param name="user">The user.</param>
     public void RemoveUserFromOtherCards(int cardId, IUser user)
     {
-      if (ValidateTvControllerParams(user) || ValidateTvControllerParams(cardId))
+      if (user.CardId > 0)
       {
-        return;
-      }
+        IUser newUser = (IUser)user.Clone();
+        Dictionary<int, ITvCardHandler>.Enumerator enumerator = CardCollection.GetEnumerator();
 
-      Dictionary<int, ITvCardHandler>.Enumerator enumerator = _cards.GetEnumerator();
-      ITVCard card = _cards[cardId].Card;
-      while (enumerator.MoveNext())
-      {
-        KeyValuePair<int, ITvCardHandler> key = enumerator.Current;
-        if (key.Key == cardId)
-          continue;
-        if (key.Value.Card.Context == card.Context)
-          continue;
-        key.Value.Users.RemoveUser(user);
+        ITVCard card = CardCollection[user.CardId].Card;
+        while (enumerator.MoveNext())
+        {
+          KeyValuePair<int, ITvCardHandler> key = enumerator.Current;
+          if (key.Key == cardId)
+            continue;
+
+          if (key.Value.Card.Context == card.Context)
+            continue;
+
+          ITvCardContext context = key.Value.Card.Context as ITvCardContext;
+          if (context != null)
+          {
+            if (context.DoesExists(newUser))
+            {
+              newUser.CardId = key.Key;
+              Log.Debug("RemoveUserFromOtherCards : {0} - {1}", newUser.Name, newUser.CardId);
+              StopTimeShifting(ref newUser);
+            }
+          }
+          else
+          {
+            continue;
+          }
+        }
       }
     }
 
@@ -3814,7 +4044,7 @@ namespace TvService
     /// <param name="channel">The channel.</param>
     /// <param name="dbChannel">The db channel</param>
     /// <returns>TvResult indicating whether method succeeded</returns>
-    private TvResult CardTune(ref IUser user, IChannel channel, Channel dbChannel)
+    private TvResult CardTune(ref IUser user, IChannel channel, Channel dbChannel, ICardTuneReservationTicket ticket, CardReservationTimeshifting cardResTS)
     {
       if (ValidateTvControllerParams(user))
       {
@@ -3824,89 +4054,41 @@ namespace TvService
       try
       {
         if (_cards[user.CardId].DataBaseCard.Enabled == false)
+        {
           return TvResult.CardIsDisabled;
-        //if (!CardPresent(user.CardId)) return TvResult.CardIsDisabled;
+        }
 
-        //on tune we need to remember to remove the previous subchannel before tuning the next one.
-        // but only if the subchannel is free, meaning not recording and no other users attached.                          
-
-        if (_cards[user.CardId].Card.SubChannels.Length > 0)
+        if (ticket.ConflictingSubchannelFound)
         {
           ITvCardContext context = (ITvCardContext)_cards[user.CardId].Card.Context;
-          context.GetUser(ref user);
-
-          bool isRec = _cards[user.CardId].Recorder.IsRecordingAnyUser();
-
-
-          IUser[] users = context.Users;
-
-          bool otherUserFoundOnSameCh = false;
-          int userSubCh = user.SubChannel;
-          int userChannelId = user.IdChannel;
-
-          //lets find if any other users are sharing that same subchannel/channel
-          bool conflictingSubchannelFound = false;
-          if (userChannelId > -1)
-          {
-            foreach (IUser userObj in users)
-            {
-              if (!userObj.Name.Equals(user.Name))
-              {
-                if (userObj.IdChannel == userChannelId)
-                {
-                  otherUserFoundOnSameCh = true;
-                }
-                if (userSubCh == userObj.SubChannel && userChannelId > 0)
-                {
-                  conflictingSubchannelFound = true;
-                }
-              }
-            }
-          }
-          if (!isRec)
-          {
-            if (userSubCh > -1)
-            {
-              if (otherUserFoundOnSameCh)
-              {
-                _cards[user.CardId].Card.FreeSubChannelContinueGraph(userSubCh, true);
-              }
-              else
-              {
-                _cards[user.CardId].Card.FreeSubChannelContinueGraph(userSubCh);
-              }
-            }
-          }
-
-          if (conflictingSubchannelFound)
-          {
-            context.UserNextAvailableSubchannel(user);
-          }
+          context.UserNextAvailableSubchannel(user);
         }
 
         Fire(this, new TvServerEventArgs(TvServerEventType.StartZapChannel, GetVirtualCard(user), (User)user, channel));
 
-        _cards[user.CardId].Tuner.OnAfterTuneEvent -= new CardTuner.OnAfterTuneDelegate(Tuner_OnAfterTuneEvent);
-        _cards[user.CardId].Tuner.OnBeforeTuneEvent -= new CardTuner.OnBeforeTuneDelegate(Tuner_OnBeforeTuneEvent);
+        _cards[user.CardId].Tuner.OnAfterTuneEvent -= Tuner_OnAfterTuneEvent;
+        _cards[user.CardId].Tuner.OnBeforeTuneEvent -= Tuner_OnBeforeTuneEvent;
 
-        _cards[user.CardId].Tuner.OnAfterTuneEvent += new CardTuner.OnAfterTuneDelegate(Tuner_OnAfterTuneEvent);
-        _cards[user.CardId].Tuner.OnBeforeTuneEvent += new CardTuner.OnBeforeTuneDelegate(Tuner_OnBeforeTuneEvent);
+        _cards[user.CardId].Tuner.OnAfterTuneEvent += Tuner_OnAfterTuneEvent;
+        _cards[user.CardId].Tuner.OnBeforeTuneEvent += Tuner_OnBeforeTuneEvent;
 
-        TvResult result = _cards[user.CardId].Tuner.CardTune(ref user, channel, dbChannel);
+        cardResTS.OnStartCardTune += CardResTsOnStartCardTune;
+        TvResult result = cardResTS.CardTune(_cards[user.CardId], ref user, channel, dbChannel, ticket);
+        cardResTS.OnStartCardTune -= CardResTsOnStartCardTune;
+
         Log.Info("Controller: {0} {1} {2}", user.Name, user.CardId, user.SubChannel);
 
-        /*
-        if (result == TvResult.Succeeded)
-        {
-          RemoveUserFromOtherCards(user.CardId, user);
-        }
-        */
         return result;
       }
       finally
       {
         Fire(this, new TvServerEventArgs(TvServerEventType.EndZapChannel, GetVirtualCard(user), (User)user, channel));
       }
+    }
+
+    TvResult CardResTsOnStartCardTune(ref IUser user, ref string fileName)
+    {
+      return StartTimeShifting(ref user, ref fileName);
     }
 
     private void Tuner_OnBeforeTuneEvent(ITvCardHandler cardHandler)
@@ -3919,38 +4101,7 @@ namespace TvService
       cardHandler.TimeShifter.OnAfterTune();
     }
 
-    /// <summary>
-    /// deletes time shifting files left in the specified folder.
-    /// </summary>
-    /// <param name="folder">The folder.</param>
-    /// <param name="fileName">Name of the file.</param>
-    private static void CleanTimeShiftFiles(string folder, string fileName)
-    {
-      try
-      {
-        Log.Write(@"Controller: delete timeshift files {0}\{1}", folder, fileName);
-        string[] files = Directory.GetFiles(folder);
-        for (int i = 0; i < files.Length; ++i)
-        {
-          if (files[i].IndexOf(fileName) >= 0)
-          {
-            try
-            {
-              Log.Write("Controller:   delete {0}", files[i]);
-              File.Delete(files[i]);
-            }
-            catch (Exception e)
-            {
-              Log.Debug("Controller: Error \"{0}\" on delete in CleanTimeshiftFiles", e.Message);
-            }
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        Log.Write(ex);
-      }
-    }
+    
 
     public bool IsTunedToTransponder(int cardId, IChannel transponder)
     {

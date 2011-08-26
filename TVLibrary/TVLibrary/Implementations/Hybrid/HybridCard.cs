@@ -466,25 +466,6 @@ namespace TvLibrary.Implementations.Hybrid
     }
 
     /// <summary>
-    /// Frees the sub channel.
-    /// </summary>
-    /// <param name="id">The id.</param>
-    /// <param name="subchannelBusy">is the subcannel busy with other users.</param>
-    public void FreeSubChannelContinueGraph(int id, bool subchannelBusy)
-    {
-      FreeSubChannelContinueGraph(id);
-    }
-
-    /// <summary>
-    /// Frees the sub channel.
-    /// </summary>
-    /// <param name="id">The id.</param>
-    public void FreeSubChannelContinueGraph(int id)
-    {
-      _group.FreeSubChannel(id);
-    }
-
-    /// <summary>
     /// Reloads the card configuration
     /// </summary>
     public void ReloadCardConfiguration()

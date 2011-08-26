@@ -92,6 +92,7 @@ namespace TvService
     public bool SameTransponder
     {
       get { return _sameTransponder; }
+      set { _sameTransponder = value; }
     }
 
     /// <summary>
@@ -100,6 +101,7 @@ namespace TvService
     public int NumberOfOtherUsers
     {
       get { return _numberOfOtherUsers; }
+      set { _numberOfOtherUsers = value; }
     }
 
     #region IComparable<CardInfo> Members

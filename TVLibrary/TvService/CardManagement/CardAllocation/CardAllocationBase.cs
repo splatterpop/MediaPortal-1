@@ -21,10 +21,8 @@
 #region usings 
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using TvControl;
 using TvDatabase;
-using TvLibrary.Channels;
 using TvLibrary.Interfaces;
 using TvLibrary.Log;
 
@@ -44,12 +42,12 @@ namespace TvService
 
     protected readonly TvBusinessLayer _businessLayer;
 
-    protected readonly TVController Controller;
+    protected readonly IController _controller;
 
-    protected CardAllocationBase(TvBusinessLayer businessLayer, TVController controller)
+    protected CardAllocationBase(TvBusinessLayer businessLayer, IController controller)
     {
       _businessLayer = businessLayer;
-      Controller = controller;
+      _controller = controller;
     }
 
     #region protected members            
@@ -61,23 +59,15 @@ namespace TvService
         bool isCamAbleToDecryptChannel = true;
         if (decryptLimit > 0)
         {
-          int camDecrypting = tvcard.NumberOfChannelsDecrypting;
+          int camDecrypting = NumberOfChannelsDecrypting(tvcard);
 
           //Check if the user is currently occupying a decoding slot and subtract that from the number of channels it is decoding.
           if (user.CardId == tvcard.DataBaseCard.IdCard)
           {
-            IChannel currentUserCh = tvcard.CurrentChannel(ref user);
-            if (currentUserCh != null && !currentUserCh.FreeToAir)
+            bool isFreeToAir = IsFreeToAir(tvcard, ref user);
+            if (!isFreeToAir)
             {
-              int currentChannelId = tvcard.CurrentDbChannel(ref user);
-              int numberOfUsersOnCurrentChannel = 0;
-              foreach (IUser aUser in tvcard.Users.GetUsers())
-              {
-                if (aUser.IdChannel == currentChannelId)
-                {
-                  ++numberOfUsersOnCurrentChannel;
-                }
-              }
+              int numberOfUsersOnCurrentChannel = GetNumberOfUsersOnCurrentChannel(tvcard, user);
 
               //Only subtract the slot the user is currently occupying if he is the only user occupying the slot.
               if (numberOfUsersOnCurrentChannel == 1)
@@ -95,7 +85,33 @@ namespace TvService
       return true;
     }
 
-    protected bool IsCamAlreadyDecodingChannel(ITvCardHandler tvcard, IChannel tuningDetail)
+    protected virtual int GetNumberOfUsersOnCurrentChannel(ITvCardHandler tvcard, IUser user) 
+    {
+      int currentChannelId = tvcard.CurrentDbChannel(ref user);
+
+      int numberOfUsersOnCurrentChannel = 0;
+      foreach (IUser aUser in tvcard.Users.GetUsers())
+      {                
+        if (aUser.IdChannel == currentChannelId)
+        {
+          ++numberOfUsersOnCurrentChannel;
+        }
+      }
+      return numberOfUsersOnCurrentChannel;
+    }
+
+    protected virtual bool IsFreeToAir(ITvCardHandler tvcard, ref IUser user)
+    {      
+      IChannel currentUserCh = tvcard.CurrentChannel(ref user);
+      return (currentUserCh != null && currentUserCh.FreeToAir);
+    }
+
+    protected virtual int NumberOfChannelsDecrypting(ITvCardHandler tvcard)
+    {
+      return tvcard.NumberOfChannelsDecrypting;
+    }
+
+    protected virtual bool IsCamAlreadyDecodingChannel(ITvCardHandler tvcard, IChannel tuningDetail)
     {
       bool isCamAlreadyDecodingChannel = false;
       IUser[] currentUsers = tvcard.Users.GetUsers();
@@ -104,7 +120,8 @@ namespace TvService
         for (int i = 0; i < currentUsers.Length; ++i)
         {
           IUser tmpUser = currentUsers[i];
-          if (tvcard.CurrentChannel(ref tmpUser).Equals(tuningDetail))
+          IChannel currentChannel = tvcard.CurrentChannel(ref tmpUser);
+          if (currentChannel != null && currentChannel.Equals(tuningDetail))          
           {
             //yes, cam already is descrambling this channel
             isCamAlreadyDecodingChannel = true;
@@ -128,14 +145,15 @@ namespace TvService
       return isValid;
     }
 
-    protected bool CheckTransponder(IUser user, ITvCardHandler tvcard, int decryptLimit, int cardId,
-                                    IChannel tuningDetail)
+    public virtual bool CheckTransponder(IUser user, ITvCardHandler tvcard, IChannel tuningDetail)
     {
-      bool checkTransponder = true;
-      bool isSameTransponder = IsSameTransponder(tvcard, tuningDetail);
-      bool isOwnerOfCard = tvcard.Users.IsOwner(user);
+      int decryptLimit = tvcard.DataBaseCard.DecryptLimit;
+      int cardId = tvcard.DataBaseCard.IdCard;      
 
-      //FIXME: Being card owner you can do whatever you want, but in case of decryptlimit that could mean kicking users. This is not handled in the code.
+      bool checkTransponder = true;      
+      bool isOwnerOfCard = IsOwnerOfCard(tvcard, user);
+
+      //TODO: Being card owner you can do whatever you want, but in case of decryptlimit that could mean kicking users. This is not handled in the code.
       if (isOwnerOfCard)
       {
         if (LogEnabled)
@@ -145,6 +163,7 @@ namespace TvService
       }
       else
       {
+        bool isSameTransponder = IsSameTransponder(tvcard, tuningDetail);
         if (isSameTransponder)
         {
           //card is in use, but it is tuned to the same transponder.
@@ -165,7 +184,7 @@ namespace TvService
               {
                 canDecrypt = true;
               }
-            }
+            } 
             else
             {
               canDecrypt = true;
@@ -179,7 +198,7 @@ namespace TvService
                 {
                   Log.Info(
                     "Controller:    card:{0} type:{1} is available, tuned to same transponder decrypting {2}/{3} channels",
-                    cardId, tvcard.Type, tvcard.NumberOfChannelsDecrypting, decryptLimit);
+                    cardId, tvcard.Type, NumberOfChannelsDecrypting(tvcard), decryptLimit);
                 }
               }
               else
@@ -199,7 +218,7 @@ namespace TvService
               {
                 Log.Info(
                   "Controller:    card:{0} type:{1} is not available, tuned to same transponder decrypting {2}/{3} channels (cam limit reached)",
-                  cardId, tvcard.Type, tvcard.NumberOfChannelsDecrypting, decryptLimit);
+                  cardId, tvcard.Type, NumberOfChannelsDecrypting(tvcard), decryptLimit);
               }
               checkTransponder = false;
             }
@@ -218,7 +237,12 @@ namespace TvService
       return checkTransponder;
     }
 
-    protected bool IsSameTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
+    protected virtual bool IsOwnerOfCard(ITvCardHandler tvcard, IUser user)
+    {
+      return tvcard.Users.IsOwner(user);
+    }
+
+    protected virtual bool IsSameTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
     {
       return tvcard.Tuner.IsTunedToTransponder(tuningDetail) &&
              tvcard.SupportsSubChannels;

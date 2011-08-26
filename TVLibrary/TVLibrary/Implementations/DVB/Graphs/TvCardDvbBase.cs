@@ -363,58 +363,12 @@ namespace TvLibrary.Implementations.DVB
     /// <summary>
     /// Frees the sub channel.
     /// </summary>
-    /// <param name="id">The id.</param>
-    /// <param name="subchannelBusy">is the subcannel busy with other users.</param>
-    public override void FreeSubChannelContinueGraph(int id, bool subchannelBusy)
-    {
-      if (subchannelBusy)
-      {
-        base.FreeSubChannelContinueGraph(id);
-      }
-      else
-      {
-        FreeSubChannelContinueGraph(id);
-      }
-    }
-
-    /// <summary>
-    /// Frees the sub channel. but keeps the graph running.
-    /// </summary>
-    /// <param name="id">Handle to the subchannel.</param>
-    public override void FreeSubChannelContinueGraph(int id)
-    {
-      if (_mdplugs != null)
-      {
-        if (_mapSubChannels.ContainsKey(id))
-        {
-          BaseSubChannel subch = _mapSubChannels[id];
-          if (subch != null && subch.CurrentChannel != null)
-          {
-            _mdplugs.FreeChannel(subch.CurrentChannel.Name);
-          }
-        }
-        //_mdplugs.FreeAllChannels();
-      }
-
-      base.FreeSubChannelContinueGraph(id);
-    }
-
-    /// <summary>
-    /// Frees the sub channel.
-    /// </summary>
     /// <param name="id">Handle to the subchannel.</param>
     public override void FreeSubChannel(int id)
-    {
+    {      
       if (_mdplugs != null)
-      {
-        if (_mapSubChannels.ContainsKey(id))
-        {
-          IChannel currentCh = _mapSubChannels[id].CurrentChannel;
-          if (currentCh != null)
-          {
-            _mdplugs.FreeChannel(currentCh.Name);
-          }
-        }
+      {        
+        _mdplugs.FreeSubChannel(id);
       }
       base.FreeSubChannel(id);
     }
@@ -479,11 +433,11 @@ namespace TvLibrary.Implementations.DVB
         Log.Log.Info("dvb:using existing subchannel:{0}", subChannelId);
       }
       Log.Log.Info("dvb:Submit tunerequest size:{0} new:{1}", _mapSubChannels.Count, subChannelId);
-      _mapSubChannels[subChannelId].CurrentChannel = channel;
 
+      _mapSubChannels[subChannelId].CurrentChannel = channel;
       try
-      {
-        _mapSubChannels[subChannelId].OnBeforeTune();
+      {         
+        _mapSubChannels[subChannelId].OnBeforeTune();        
         if (_interfaceEpgGrabber != null)
         {
           _interfaceEpgGrabber.Reset();
@@ -552,21 +506,26 @@ namespace TvLibrary.Implementations.DVB
         _lastSignalUpdate = DateTime.MinValue;
         _mapSubChannels[subChannelId].OnAfterTune();
       }
-      catch (Exception)
-      {
+      catch (Exception ex)
+      {        
         if (newSubChannel)
         {
-          Log.Log.WriteFile("dvb:SubmitTuneRequest  failed - removing subchannel: {0}", subChannelId);
+          Log.Log.WriteFile("dvb:SubmitTuneRequest  failed - removing subchannel: {0}, {1} - {2}", subChannelId, ex.Message, ex.StackTrace);
           if (_mapSubChannels.ContainsKey(subChannelId))
           {
             _mapSubChannels.Remove(subChannelId);
           }
         }
+        else
+        {
+          Log.Log.WriteFile("dvb:SubmitTuneRequest  failed - subchannel: {0}", subChannelId);
+        }
+
         throw;
       }
 
       return _mapSubChannels[subChannelId];
-    }
+    }      
 
     /// <summary>
     /// Performs a tuning using the internal network provider
@@ -2718,7 +2677,6 @@ namespace TvLibrary.Implementations.DVB
     public void ReloadCardConfiguration() {}
 
     #endregion
-
     protected abstract DVBBaseChannel CreateChannel(int networkid, int transportid, int serviceid, string name);
   }
 }
