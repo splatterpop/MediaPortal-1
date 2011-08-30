@@ -29,31 +29,34 @@ namespace TvService
   {
     #region vars
 
-    private IChannel _tuningDetail;
-    private bool _isSameTransponder;
-    private int _numberOfOtherUsersOnSameChannel;
-    private int _numberOfOtherUsersOnCurrentCard;
-    private int _numberOfUsersOnSameCurrentChannel;
-    private bool _isAnySubChannelTimeshifting;    
-    private List<IUser> _inactiveUsers = new List<IUser>();
-    private List<IUser> _activeUsers = new List<IUser>();
-    private List<IUser> _users = new List<IUser>();
-    private int _ownerSubchannel = -1;
-    private bool _isOwner;    
-    private int _idCard;
-    private int _numberOfChannelsDecrypting = 0;
-    private bool _isFreeToAir = true;            
-    private bool _conflictingSubchannelFound;
-    private bool _isCamAlreadyDecodingChannel;
+    private readonly IUser _user;
+    private readonly IChannel _tuningDetail;
+    private readonly bool _isSameTransponder;
+    private readonly int _numberOfOtherUsersOnSameChannel;
+    private readonly int _numberOfOtherUsersOnCurrentCard;
+    private readonly int _numberOfUsersOnSameCurrentChannel;
+    private readonly bool _isAnySubChannelTimeshifting;    
+    private readonly List<IUser> _inactiveUsers = new List<IUser>();
+    private readonly List<IUser> _activeUsers = new List<IUser>();
+    private readonly List<IUser> _users = new List<IUser>();
+    private readonly int _ownerSubchannel = -1;
+    private readonly bool _isOwner;    
+    private readonly int _idCard;
+    private readonly int _numberOfChannelsDecrypting;
+    private readonly bool _isFreeToAir = true;            
+    private readonly bool _conflictingSubchannelFound;
+    private readonly bool _isCamAlreadyDecodingChannel;
 
-    private List<IUser> _recordingUsers = new List<IUser>();
-    private List<IUser> _timeshiftingUsers = new List<IUser>();
+    private readonly List<IUser> _recordingUsers = new List<IUser>();
+    private readonly IList<IUser> _timeshiftingUsers = new List<IUser>();
+    private int _pendingSubchannel;
 
     #endregion
 
-    public CardTuneReservationTicket(IChannel tuningDetail, bool isSameTransponder, int numberOfOtherUsersOnSameChannel, bool isAnySubChannelTimeshifting, List<IUser> inactiveUsers, List<IUser> activeUsers, List<IUser> users, int ownerSubchannel, bool isOwner, int idCard, int numberOfChannelsDecrypting, bool isFreeToAir, int numberOfOtherUsersOnCurrentCard, List<IUser> recUsers, List<IUser> tsUsers, bool conflictingSubchannelFound, int numberOfUsersOnSameCurrentChannel, bool isCamAlreadyDecodingChannel)
-      : base()
+    public CardTuneReservationTicket(IUser user, IChannel tuningDetail, bool isSameTransponder, int numberOfOtherUsersOnSameChannel, bool isAnySubChannelTimeshifting, List<IUser> inactiveUsers, List<IUser> activeUsers, List<IUser> users, int ownerSubchannel, bool isOwner, int idCard, int numberOfChannelsDecrypting, bool isFreeToAir, int numberOfOtherUsersOnCurrentCard, List<IUser> recUsers, List<IUser> tsUsers, bool conflictingSubchannelFound, int numberOfUsersOnSameCurrentChannel, bool isCamAlreadyDecodingChannel)
     {
+      _pendingSubchannel = -1;
+      _user = user;
       _isCamAlreadyDecodingChannel = isCamAlreadyDecodingChannel;
       _numberOfUsersOnSameCurrentChannel = numberOfUsersOnSameCurrentChannel;
       _conflictingSubchannelFound = conflictingSubchannelFound;      
@@ -94,17 +97,17 @@ namespace TvService
       get { return _isAnySubChannelTimeshifting; }
     }
 
-    public List<IUser> InactiveUsers
+    public IList<IUser> InactiveUsers
     {
       get { return _inactiveUsers; }
     }
 
-    public List<IUser> ActiveUsers
+    public IList<IUser> ActiveUsers
     {
       get { return _activeUsers; }
     }
 
-    public List<IUser> Users
+    public IList<IUser> Users
     {
       get { return _users; }
     }
@@ -134,6 +137,17 @@ namespace TvService
       get { return _isCamAlreadyDecodingChannel; }
     }
 
+    public IUser User
+    {
+      get { return _user; }
+    }
+
+    public int PendingSubchannel
+    {
+      get { return _pendingSubchannel; }
+      set { _pendingSubchannel = value; }
+    }
+
     public bool IsFreeToAir
     {
       get { return _isFreeToAir; }
@@ -149,7 +163,7 @@ namespace TvService
       get { return _recordingUsers; }
     }
 
-    public List<IUser> TimeshiftingUsers
+    public IList<IUser> TimeshiftingUsers
     {
       get { return _timeshiftingUsers; }
     }   

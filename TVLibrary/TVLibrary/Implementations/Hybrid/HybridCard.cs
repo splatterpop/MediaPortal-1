@@ -456,6 +456,13 @@ namespace TvLibrary.Implementations.Hybrid
       get { return _group.SubChannels; }
     }
 
+    public void CancelTune(int subChannel)
+    {
+      
+    }
+
+    public event OnNewSubChannelDelegate OnNewSubChannelEvent;
+
     /// <summary>
     /// Frees the sub channel.
     /// </summary>

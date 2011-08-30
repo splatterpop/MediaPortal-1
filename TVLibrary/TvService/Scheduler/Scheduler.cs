@@ -195,9 +195,7 @@ namespace TvService
       {
         if (rec.Schedule.IdSchedule == idSchedule)
         {
-          IUser user = new User();
-          user.Name = string.Format("scheduler{0}", rec.Schedule.IdSchedule);
-          user.CardId = rec.CardInfo.Id;
+          IUser user = UserFactory.CreateSchedulerUser(rec.Schedule.IdSchedule, rec.CardInfo.Id);          
           card = new VirtualCard(user);
           return true;
         }
@@ -1351,7 +1349,6 @@ namespace TvService
 
     private void KickAllUsersOnTransponder(CardDetail cardDetail, ICardTuneReservationTicket ticket) 
     {
-      List<IUser> tsUsers = ticket.TimeshiftingUsers;      
       Log.Write(
         "Scheduler : card is not tuned to the same transponder and not recording, kicking all users. record on card:{0} priority:{1}",
         cardDetail.Id, cardDetail.Card.Priority);
@@ -1371,7 +1368,7 @@ namespace TvService
 
     private bool CanKickAllUsersOnTransponder(ICardTuneReservationTicket ticket) 
     {
-      List<IUser> recUsers = ticket.RecordingUsers;
+      IList<IUser> recUsers = ticket.RecordingUsers;
       bool canKickAll = (recUsers.Count == 0);      
       return canKickAll;
     }   

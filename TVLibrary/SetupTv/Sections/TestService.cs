@@ -28,6 +28,7 @@ using TvLibrary.Interfaces;
 using TvLibrary.Log;
 using Gentle.Framework;
 using SetupControls;
+using TvService;
 
 namespace SetupTv.Sections
 {
@@ -125,10 +126,9 @@ namespace SetupTv.Sections
             break; // Keep the first card enabled selected only
           }
         }
-        IUser user = new User();
-        user.Name = "setuptv-" + id + "-" + cardId;
-        user.IsAdmin = true;
-        user.CardId = cardId;
+        IUser user = UserFactory.CreateSchedulerUser();
+        user.Name = "setuptv-" + id + "-" + cardId;        
+        user.CardId = cardId;        
 
         TvResult result = server.StartTimeShifting(ref user, id, out card, cardId != -1);
         if (result != TvResult.Succeeded)
@@ -182,6 +182,9 @@ namespace SetupTv.Sections
               break;
             case TvResult.NoFreeDiskSpace:
               MessageBox.Show(this, "No free disk space");
+              break;
+            case TvResult.TuneCancelled:
+              MessageBox.Show(this, "Tune cancelled");
               break;
           }
         }

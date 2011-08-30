@@ -18,7 +18,6 @@
 
 #endregion
 
-using TvControl;
 using TvLibrary.Interfaces;
 
 namespace TvService
@@ -28,11 +27,6 @@ namespace TvService
     public CardReservationRecAvail(TVController tvController) : base(tvController) { }
 
     #region Overrides of CardReservationBase
-
-    protected override bool CheckTransponder(ITvCardHandler tvcard, IUser user, IChannel tuningDetail)
-    {
-      return true;
-    }
 
     protected override bool IsTunedToTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
     {

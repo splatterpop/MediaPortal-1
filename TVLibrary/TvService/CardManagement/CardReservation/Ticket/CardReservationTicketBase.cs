@@ -18,29 +18,21 @@
 
 #endregion
 
-using System;
-using TvControl;
-using TvLibrary.Interfaces;
 
 namespace TvService
 {
-  public class CardReservationTimeshifting : CardReservationBase
+  public class CardReservationTicketBase
   {
-    public CardReservationTimeshifting(TVController tvController) : base(tvController) {}
+    private readonly int _id;
 
-    #region Overrides of CardReservationBase    
-
-    protected override bool OnStartTune(IUser user)
+    protected CardReservationTicketBase ()
     {
-      return true;
+      _id = CardReservationHelper.GetNextId;
     }
 
-    protected override bool IsTunedToTransponder(ITvCardHandler cardHandler, IChannel tuningDetail)
+    public int Id
     {
-      return cardHandler.Tuner.IsTunedToTransponder(tuningDetail);
+      get { return _id; }
     }
-
-
-    #endregion
   }
- }
+}

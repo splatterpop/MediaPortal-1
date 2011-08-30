@@ -148,6 +148,7 @@
     <Compile Include="TsCopier.cs" />
     <Compile Include="TvCardContext.cs" />
     <Compile Include="TVController.cs" />
+    <Compile Include="UserFactory.cs" />
     <Compile Include="Util.cs" />
   </ItemGroup>
   <ItemGroup>

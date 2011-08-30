@@ -48,29 +48,26 @@ namespace TvService
     protected override bool OnStartTune(IUser user)
     {
       bool startRecordingOnDisc = true;
+      if (_tvController.SupportsSubChannels(_cardInfo.Card.IdCard) == false)
+      {
+        Log.Write("Scheduler : record, now start timeshift");
+        string timeshiftFileName = String.Format(@"{0}\live{1}-{2}.ts", _cardInfo.Card.TimeShiftFolder, _cardInfo.Id,
+                                                 user.SubChannel);
+        startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartTimeShifting(ref user, ref timeshiftFileName));
+      }
+
       if (startRecordingOnDisc)
       {
-        if (_tvController.SupportsSubChannels(_cardInfo.Card.IdCard) == false)
-        {
-          Log.Write("Scheduler : record, now start timeshift");
-          string timeshiftFileName = String.Format(@"{0}\live{1}-{2}.ts", _cardInfo.Card.TimeShiftFolder, _cardInfo.Id,
-                                                   user.SubChannel);
-          startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartTimeShifting(ref user, ref timeshiftFileName));
-        }
+        _recDetail.MakeFileName(_cardInfo.Card.RecordingFolder);
+        _recDetail.CardInfo = _cardInfo;
+        Log.Write("Scheduler : record to {0}", _recDetail.FileName);
+        string fileName = _recDetail.FileName;
+        startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartRecording(ref user, ref fileName, false, 0));
 
         if (startRecordingOnDisc)
         {
-          _recDetail.MakeFileName(_cardInfo.Card.RecordingFolder);
-          _recDetail.CardInfo = _cardInfo;
-          Log.Write("Scheduler : record to {0}", _recDetail.FileName);
-          string fileName = _recDetail.FileName;
-          startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartRecording(ref user, ref fileName, false, 0));
-
-          if (startRecordingOnDisc)
-          {
-            _recDetail.FileName = fileName;
-            _recDetail.RecordingStartDateTime = DateTime.Now;
-          }
+          _recDetail.FileName = fileName;
+          _recDetail.RecordingStartDateTime = DateTime.Now;
         }
       }
       if (!startRecordingOnDisc && _tvController.AllCardsIdle)

@@ -24,6 +24,7 @@ using TvLibrary.Epg;
 
 namespace TvLibrary.Interfaces
 {
+  public delegate void OnNewSubChannelDelegate(int id);
   /// <summary>
   /// cam types
   /// </summary>
@@ -312,5 +313,8 @@ namespace TvLibrary.Interfaces
     ITvSubChannel[] SubChannels { get; }
 
     #endregion
+
+    void CancelTune(int subChannel);    
+    event OnNewSubChannelDelegate OnNewSubChannelEvent;
   }
 }

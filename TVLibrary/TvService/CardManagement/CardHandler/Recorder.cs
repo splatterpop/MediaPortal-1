@@ -36,9 +36,11 @@ namespace TvService
     private readonly ITvCardHandler _cardHandler;
     private readonly bool _timeshiftingEpgGrabberEnabled;
     private readonly int _waitForTimeshifting = 15; // seconds
-    private ManualResetEvent _eventAudio; // gets signaled when audio PID is seen
-    private ManualResetEvent _eventVideo; // gets signaled when video PID is seen
+    private readonly ManualResetEvent _eventAudio; // gets signaled when audio PID is seen
+    private readonly ManualResetEvent _eventVideo; // gets signaled when video PID is seen
     private ITvSubChannel _subchannel; // the active sub channel to record
+    private readonly ManualResetEvent _eventTimeshift = new ManualResetEvent(true);
+    private bool _cancelled;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Recording"/> class.
@@ -49,10 +51,43 @@ namespace TvService
       _eventAudio = new ManualResetEvent(false);
       _eventVideo = new ManualResetEvent(false);
 
-      TvBusinessLayer layer = new TvBusinessLayer();
+      var layer = new TvBusinessLayer();
       _cardHandler = cardHandler;
       _timeshiftingEpgGrabberEnabled = (layer.GetSetting("timeshiftingEpgGrabberEnabled", "no").Value == "yes");
       _waitForTimeshifting = Int32.Parse(layer.GetSetting("timeshiftWaitForTimeshifting", "15").Value);
+
+      if (_cardHandler != null && _cardHandler.Tuner != null)
+      {
+        _cardHandler.Tuner.OnAfterCancelTuneEvent += new CardTuner.OnAfterCancelTuneDelegate(Tuner_OnAfterCancelTuneEvent);
+      }
+    }
+
+    private void Tuner_OnAfterCancelTuneEvent(int subchannelId)
+    {
+      try
+      {
+        if (_cardHandler.DataBaseCard.Enabled == false)
+        {
+          return;
+        }
+
+        Log.Debug("Recorder: tuning interrupted.");
+        _cancelled = true;
+
+        ITvSubChannel subchannel = _cardHandler.Card.GetSubChannel(subchannelId);
+        if (subchannel is BaseSubChannel)
+        {
+          Log.Write("card {2}: Cancel Recording sub:{1}", subchannel, _cardHandler.Card.Name);
+          ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
+          _eventAudio.Set();
+          _eventVideo.Set();
+          _eventTimeshift.WaitOne();
+        }
+      }
+      catch (Exception ex)
+      {
+        Log.Write(ex);
+      }
     }
 
     private void AudioVideoEventHandler(PidType pidType)
@@ -81,6 +116,7 @@ namespace TvService
     /// <returns></returns>
     public TvResult Start(ref IUser user, ref string fileName, bool contentRecording, long startTime)
     {
+      _eventTimeshift.Reset();
       bool useErrorDetection = false;
       try
       {
@@ -132,6 +168,10 @@ namespace TvService
           {
             // fix mantis 0002807: A/V detection for recordings is not working correctly 
             // reset the events ONLY before attaching the observer, at a later position it can already miss the a/v callback.
+            if (IsTuneCancelled())
+            {
+              return TvResult.TuneCancelled;
+            }
             _eventVideo.Reset();
             _eventAudio.Reset();
             Log.Debug("Recorder.start add audioVideoEventHandler");
@@ -166,6 +206,10 @@ namespace TvService
                   Utils.DeleteFileAndEmptyDirectory(fileName);
                 }
                 ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
+                if (IsTuneCancelled())
+                {
+                  return TvResult.TuneCancelled;
+                }
                 if (isScrambled)
                 {
                   return TvResult.ChannelIsScrambled;
@@ -269,6 +313,11 @@ namespace TvService
       catch (Exception ex)
       {
         Log.Write(ex);
+      }
+      finally
+      {
+        _eventTimeshift.Set();
+        _cancelled = false;
       }
       return false;
     }
@@ -485,13 +534,18 @@ namespace TvService
       }
     }
 
+    private bool IsTuneCancelled()
+    {
+      return _cancelled;
+    }
+
     /// <summary>
     /// Waits for recording file to be at leat 300kb. 
     /// </summary>
     /// <param name="user">User</param>
     /// <param name="scrambled">Indicates if the channel is scambled</param>
     /// <returns>true when timeshift files is at least of 300kb, else timeshift file is less then 300kb</returns>
-    public bool WaitForRecordingFile(ref IUser user, out bool scrambled)
+    private bool WaitForRecordingFile(ref IUser user, out bool scrambled)
     {
       ///(taken from timeshifter)
       scrambled = false;
@@ -523,6 +577,11 @@ namespace TvService
         // wait for audio PID to be seen
         if (_eventAudio.WaitOne(waitForEvent, true))
         {
+          if (IsTuneCancelled())
+          {
+            Log.Write("card: WaitForRecordingFile - Tune Cancelled");
+            return false;
+          }
           // start of the video & audio is seen
           TimeSpan ts = DateTime.Now - timeStart;
           Log.Write("card: WaitForRecordingFile - audio is seen after {0} seconds", ts.TotalSeconds);
@@ -546,8 +605,17 @@ namespace TvService
         // block until video & audio PIDs are seen or the timeout is reached
         if (_eventAudio.WaitOne(waitForEvent, true))
         {
+          if (IsTuneCancelled())
+          {
+            return false;
+          }
           if (_eventVideo.WaitOne(waitForEvent, true))
           {
+            if (IsTuneCancelled())
+            {
+              Log.Write("card: WaitForRecordingFile - Tune Cancelled");
+              return false;
+            }
             // start of the video & audio is seen
             TimeSpan ts = DateTime.Now - timeStart;
             Log.Write("card: WaitForRecordingFile - video and audio are seen after {0} seconds", ts.TotalSeconds);

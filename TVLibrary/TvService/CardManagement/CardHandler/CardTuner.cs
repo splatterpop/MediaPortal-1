@@ -45,8 +45,8 @@ namespace TvService
     private readonly object _cardReservationsLock = new object();    
     
     private CardTuneState _cardTuneState = CardTuneState.Idle;
-    private CardStopState _cardStopState = CardStopState.Idle;
-    
+    private CardStopState _cardStopState = CardStopState.Idle;    
+
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CardTuner"/> class.
@@ -55,6 +55,21 @@ namespace TvService
     public CardTuner(ITvCardHandler cardHandler)
     {
       _cardHandler = cardHandler;
+      _cardHandler.Card.OnNewSubChannelEvent += new OnNewSubChannelDelegate(Card_OnNewSubChannelEvent);
+    }
+
+    private void Card_OnNewSubChannelEvent(int id)
+    {
+      if (_cardHandler.Tuner.HasActiveCardTuneReservationTicket)
+      {
+        _cardHandler.Tuner.ActiveCardTuneReservationTicket.PendingSubchannel = id;
+      }
+      AddTuneEvent();
+    }
+
+    private bool HasActiveCardTuneReservationTicket
+    {
+      get { return ActiveCardTuneReservationTicket != null; }
     }
 
     public object CardReservationsLock
@@ -173,6 +188,16 @@ namespace TvService
         }
         return TvResult.NoPmtFound;
       }
+
+      catch (TvExceptionTuneCancelled)
+      {
+        if (result != null)
+        {
+          _cardHandler.Card.FreeSubChannel(result.SubChannelId);
+        }
+        return TvResult.TuneCancelled;
+      }
+
       catch (Exception ex)
       {
         Log.Write(ex);
@@ -184,6 +209,107 @@ namespace TvService
       }
     }
 
+    private readonly IDictionary<int,ManualResetEvent> _tuneEvents = new Dictionary<int, ManualResetEvent>();
+    private readonly object _tuneEvtLock = new object();
+
+    public void CancelTune(int subchannel)
+    {
+      if (_cardHandler.DataBaseCard.Enabled == false || subchannel < 0)
+      {
+        return;
+      }
+      Log.Info("card: CancelTune {0} to {1}", _cardHandler.DataBaseCard.IdCard);
+      _cardHandler.Card.CancelTune(subchannel);
+      RaiseOnAfterCancelTuneEvent(subchannel);
+      WaitForCancelledTuneToFinish(subchannel);
+    }
+
+    private void RaiseOnAfterCancelTuneEvent(int subchannel)
+    {
+      if (OnAfterCancelTuneEvent != null)
+      {
+        OnAfterCancelTuneEvent(subchannel);
+      }
+    }
+
+    private void RemoveTuneEvent(int subchannel)
+    {
+      //int subchannel = GetPendingSubchannel();
+      if (subchannel > -1)
+      {
+        lock (_tuneEvtLock)
+        {
+          ManualResetEvent tuneEvt;
+          bool hasTuneEvt = _tuneEvents.TryGetValue(subchannel, out tuneEvt);
+          if (hasTuneEvt)
+          {
+            Log.Info("card: RemoveTuneEvent subch: {0}", subchannel);
+            if (tuneEvt != null)
+            {
+              tuneEvt.Close();
+            }
+            _tuneEvents.Remove(subchannel);
+          }
+        }
+      }
+    }
+
+    private int GetPendingSubchannel()
+    {
+      int pendingSubchannel = -1;
+      if (_cardHandler.Tuner.HasActiveCardTuneReservationTicket)
+      {
+        pendingSubchannel = _cardHandler.Tuner.ActiveCardTuneReservationTicket.PendingSubchannel;
+      }
+      return pendingSubchannel;
+    }
+
+    private void AddTuneEvent()
+    {
+      int subchannel = GetPendingSubchannel();
+      if (subchannel > -1)
+      {
+        lock (_tuneEvtLock)
+        {
+          Log.Info("card: AddTuneEvent subch: {0}", subchannel);
+          _tuneEvents[subchannel] = new ManualResetEvent(false);
+        }
+      }
+    }
+
+    private void SignalTuneEvent(int subchannel)
+    {
+      //int subchannel = GetPendingSubchannel();
+      if (subchannel > -1)
+      {
+        lock (_tuneEvtLock)
+        {
+          ManualResetEvent tuneEvt;
+          bool hasTuneEvt = _tuneEvents.TryGetValue(subchannel, out tuneEvt);
+          if (hasTuneEvt && tuneEvt != null)
+          {
+            Log.Info("card: SignalTuneEvent subch: {0}", subchannel);
+            tuneEvt.Set();
+          }
+        }
+      }
+    }
+
+    private void WaitForCancelledTuneToFinish(int subchannel)
+    {
+      ManualResetEvent tuneEvt;
+      bool hasTuneEvt;
+      lock (_tuneEvtLock)
+      {
+        hasTuneEvt = _tuneEvents.TryGetValue(subchannel, out tuneEvt);
+      }
+      if (hasTuneEvt && tuneEvt != null)
+      {
+        Log.Info("card: WaitForCancelledTuneToFinish subch: {0}", subchannel);
+        tuneEvt.WaitOne();
+      }
+    }
+
     /// <summary>
     /// Tunes the the specified card to the channel.
     /// </summary>
@@ -192,48 +318,53 @@ namespace TvService
     /// <param name="idChannel">The channel id</param>
     /// <returns></returns>
     public TvResult Tune(ref IUser user, IChannel channel, int idChannel)
-    {
+    {      
       ITvSubChannel result = null;
       try
       {
         if (_cardHandler.DataBaseCard.Enabled == false)
           return TvResult.CardIsDisabled;
-        Log.Info("card: Tune {0} to {1}", _cardHandler.DataBaseCard.IdCard, channel.Name);
-
-        // fix mantis 0002776: Code locking in cardtuner can cause hangs 
-        //lock (this)
+        Log.Info("card: Tune {0} to {1}", _cardHandler.DataBaseCard.IdCard, channel.Name);             
+        if (_cardHandler.IsLocal == false)
         {
-          if (_cardHandler.IsLocal == false)
+          try
           {
-            try
-            {
-              RemoteControl.HostName = _cardHandler.DataBaseCard.ReferencedServer().HostName;
-              return RemoteControl.Instance.Tune(ref user, channel, idChannel);
-            }
-            catch (Exception)
-            {
-              Log.Error("card: unable to connect to slave controller at: {0}",
-                        _cardHandler.DataBaseCard.ReferencedServer().HostName);
-              return TvResult.ConnectionToSlaveFailed;
-            }
+            RemoteControl.HostName = _cardHandler.DataBaseCard.ReferencedServer().HostName;
+            return RemoteControl.Instance.Tune(ref user, channel, idChannel);
           }
-          TvResult tvResult = TvResult.UnknownError;
-          if (!BeforeTune(channel, ref user, out tvResult))
+          catch (Exception)
           {
-            return tvResult;
-          }
-          user.FailedCardId = -1;
-          result = _cardHandler.Card.Tune(user.SubChannel, channel);
-
-          if (result != null)
-          {
-            return AfterTune(user, idChannel, result);
-          }
-          else
-          {
-            return TvResult.UnknownError;
+            Log.Error("card: unable to connect to slave controller at: {0}",
+                      _cardHandler.DataBaseCard.ReferencedServer().HostName);
+            return TvResult.ConnectionToSlaveFailed;
           }
         }
+        TvResult tvResult = TvResult.UnknownError;
+        if (!BeforeTune(channel, ref user, out tvResult))
+        {
+          return tvResult;
+        }
+        user.FailedCardId = -1;
+        
+        result = _cardHandler.Card.Tune(user.SubChannel, channel);
+
+        if (result != null)
+        {
+          return AfterTune(user, idChannel, result);
+        }
+        else
+        {
+          return TvResult.UnknownError;
+        }        
+      }
+      catch (TvExceptionTuneCancelled)
+      {
+        user.FailedCardId = _cardHandler.DataBaseCard.IdCard;
+        if (result != null)
+        {
+          _cardHandler.Card.FreeSubChannel(result.SubChannelId);
+        }        
+        return TvResult.TuneCancelled;
       }
       catch (TvExceptionNoSignal)
       {
@@ -272,7 +403,7 @@ namespace TvService
           _cardHandler.Card.FreeSubChannel(result.SubChannelId);
         }
         return TvResult.NoPmtFound;
-      }
+      }      
       catch (Exception ex)
       {
         user.FailedCardId = _cardHandler.DataBaseCard.IdCard;
@@ -282,7 +413,13 @@ namespace TvService
           _cardHandler.Card.FreeSubChannel(result.SubChannelId);
         }
         return TvResult.UnknownError;
-      }
+      }      
+    }
+
+    public void CleanUpPendingTune(int pendingSubchannel)
+    {
+      SignalTuneEvent(pendingSubchannel);
+      RemoveTuneEvent(pendingSubchannel);
     }
 
     private TvResult AfterTune(IUser user, int idChannel, ITvSubChannel result)
@@ -405,7 +542,11 @@ namespace TvService
 
       result = TvResult.Succeeded;
       return true;
-    }    
+    }
+
+    public event OnAfterCancelTuneDelegate OnAfterCancelTuneEvent;
+
+    public delegate void OnAfterCancelTuneDelegate(int subchannel);
 
     public event OnAfterTuneDelegate OnAfterTuneEvent;
 

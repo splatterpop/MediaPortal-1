@@ -3076,6 +3076,9 @@ namespace TvPlugin
         case TvResult.UnableToStartGraph:
           TextID = 1505;
           break;
+        case TvResult.TuneCancelled:
+          TextID = 1524;
+          break;
         case TvResult.UnknownError:
           // this error can also happen if we have no connection to the server.
           if (!Connected) // || !IsRemotingConnected())

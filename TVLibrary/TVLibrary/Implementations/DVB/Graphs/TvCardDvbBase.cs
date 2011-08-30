@@ -373,6 +373,17 @@ namespace TvLibrary.Implementations.DVB
       base.FreeSubChannel(id);
     }
 
+    //public delegate void OnNewSubChannelDelegate(int id);
+    public event OnNewSubChannelDelegate OnNewSubChannelEvent;
+
+    private void FireOnNewSubChannelEvent(int id)
+    {
+     if (OnNewSubChannelEvent != null)
+     {
+       OnNewSubChannelEvent(id);
+     }
+    }
+
     /// <summary>
     /// Allocates a new instance of TvDvbChannel which handles the new subchannel
     /// </summary>
@@ -387,6 +398,7 @@ namespace TvLibrary.Implementations.DVB
       subChannel.Parameters = Parameters;
       subChannel.CurrentChannel = channel;
       _mapSubChannels[id] = subChannel;
+      FireOnNewSubChannelEvent(id);
       return id;
     }
 
@@ -822,6 +834,22 @@ namespace TvLibrary.Implementations.DVB
     {
       return true;
       //default behaviour is nothing
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="subChannel"></param>
+    public void CancelTune(int subChannel)
+    {
+      if (_mapSubChannels.ContainsKey(subChannel))
+      {
+        var dvbChannel = _mapSubChannels[subChannel] as TvDvbChannel;
+        if (dvbChannel != null)
+        {
+          dvbChannel.CancelTune();
+        }
+      }
     }
 
     //protected Dictionary<int, TvDvbChannel> _mapSubChannels;

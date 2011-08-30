@@ -29,11 +29,11 @@ namespace TvService
   {
     IChannel TuningDetail  { get; }
 
-    List<IUser> InactiveUsers { get; }
-    List<IUser> ActiveUsers { get; }
-    List<IUser> Users { get; }
+    IList<IUser> InactiveUsers { get; }
+    IList<IUser> ActiveUsers { get; }
+    IList<IUser> Users { get; }
     List<IUser> RecordingUsers { get; }
-    List<IUser> TimeshiftingUsers { get; }        
+    IList<IUser> TimeshiftingUsers { get; }        
 
     bool IsSameTransponder  { get; }
     bool IsOwner { get; }
@@ -50,5 +50,7 @@ namespace TvService
     int CardId { get; }
     int NumberOfChannelsDecrypting { get; }
     bool IsCamAlreadyDecodingChannel { get; }
+    IUser User { get; }
+    int PendingSubchannel { get; set; }
   }
 }

@@ -84,7 +84,7 @@ namespace TvService
     public EpgCard(TVController controller, Card card)
     {
       _card = card;
-      _user = new User("epg", false, -1);
+      _user = UserFactory.CreateEpgUser();
 
       _tvController = controller;
       _grabStartTime = DateTime.MinValue;
@@ -243,7 +243,7 @@ namespace TvService
 
       _state = EpgState.Idle;
       _isRunning = true;
-      _user = new User("epg", false, -1);
+      _user = UserFactory.CreateEpgUser();
       if (GrabEpgForChannel(channel, _currentTransponder.Tuning, _card))
       {
         Log.Epg("EpgCard: card: {0} starting to grab {1}", _user.CardId, _currentTransponder.Tuning.ToString());
@@ -492,27 +492,37 @@ namespace TvService
         ITvCardHandler cardHandler;
         if (_tvController.CardCollection.TryGetValue(card.IdCard, out cardHandler))
         {
-          ICardReservation cardReservationImpl = new CardReservationTimeshifting(_tvController);
-          ICardTuneReservationTicket ticket = cardReservationImpl.RequestCardTuneReservation(cardHandler, tuning, _user);
-                            
-          if (ticket != null)
+          ICardTuneReservationTicket ticket = null;
+          try
           {
-            result = _tvController.Tune(ref _user, tuning, channel.IdChannel, ticket);
-            if (result == TvResult.Succeeded)
+            ICardReservation cardReservationImpl = new CardReservationTimeshifting(_tvController);
+            ticket = cardReservationImpl.RequestCardTuneReservation(cardHandler, tuning, _user);
+
+            if (ticket != null)
             {
-              if (!_isRunning || false == _tvController.GrabEpg(this, card.IdCard))
+              result = _tvController.Tune(ref _user, tuning, channel.IdChannel, ticket);
+              if (result == TvResult.Succeeded)
               {
-                if (!_isRunning)
-                  Log.Epg("Tuning finished but EpgGrabber no longer enabled");
-                _tvController.StopGrabbingEpg(_user);
-                _user.CardId = -1;
-                Log.Epg("Epg: card:{0} could not start dvbt grabbing", card.IdCard);
-                return false;
+                if (!_isRunning || false == _tvController.GrabEpg(this, card.IdCard))
+                {
+                  if (!_isRunning)
+                    Log.Epg("Tuning finished but EpgGrabber no longer enabled");
+                  _tvController.StopGrabbingEpg(_user);
+                  _user.CardId = -1;
+                  Log.Epg("Epg: card:{0} could not start dvbt grabbing", card.IdCard);
+                  return false;
+                }
+                _user.CardId = card.IdCard;
+                return true;
               }
-              _user.CardId = card.IdCard;
-              return true;
-            }
-          }              
+            } 
+          }
+          catch (Exception)
+          {
+            CardReservationHelper.CancelCardReservation(cardHandler, ticket);
+            throw;
+          }
+                       
         }            
         _user.CardId = -1;
         Log.Epg("Epg: card:{0} could not tune to channel:{1}", card.IdCard, result.ToString());
@@ -520,7 +530,7 @@ namespace TvService
       }
       catch (Exception ex)
       {
-        Log.Write(ex);
+        Log.Write(ex);        
         throw;
       }
     }

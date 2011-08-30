@@ -294,6 +294,12 @@ namespace TvLibrary.Implementations.RadioWebStream
       get { return new ITvSubChannel[0]; }
     }
 
+    public void CancelTune(int subChannel)
+    {
+    }
+
+    public event OnNewSubChannelDelegate OnNewSubChannelEvent;
+
     /// <summary>
     /// Gets/sets the card name
     /// </summary>

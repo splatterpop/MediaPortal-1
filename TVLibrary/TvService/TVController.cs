@@ -2654,10 +2654,8 @@ namespace TvService
             {
               break;
             }
-            userCopy = new User(user.Name, user.IsAdmin);            
-
             CardDetail cardInfo = freeCards[i];
-            userCopy.CardId = cardInfo.Id;
+            userCopy = UserFactory.CreateBasicUser(user.Name, cardInfo.Id);            
             if (forceCardId && user.CardId != cardInfo.Id)
             {
               failedCardId = cardInfo.Id;
