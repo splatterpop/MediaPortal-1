@@ -30,7 +30,8 @@ namespace TvService
 
     protected override bool IsTunedToTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
     {
-      return true;
+      //return true;
+      return tvcard.Tuner.IsTunedToTransponder(tuningDetail);
     }
 
    

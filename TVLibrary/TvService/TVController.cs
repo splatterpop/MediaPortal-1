@@ -19,9 +19,11 @@
 #endregion
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -183,7 +185,7 @@ namespace TvService
       _cardAllocation = new AdvancedCardAllocation(_layer, this);
     }
 
-    public Dictionary<int, ITvCardHandler> CardCollection
+    public IDictionary<int, ITvCardHandler> CardCollection
     {
       get { return _cards; }
     }
@@ -2534,6 +2536,7 @@ namespace TvService
 
       try
       {
+        user.Priority = UserFactory.GetDefaultPriority(user.Name);
         TvResult result;
         List<CardDetail> freeCards = _cardAllocation.GetFreeCardsForChannel(_cards, channel, ref user, out result);
         if (freeCards.Count > 0)
@@ -2593,6 +2596,8 @@ namespace TvService
       if (user.CardId != -1)
         initialCard = GetVirtualCard(user);
 
+      user.Priority = UserFactory.GetDefaultPriority(user.Name, user.Priority);
+
       string intialTimeshiftingFilename = GetIntialTimeshiftingFilename(initialCard);
 
       Channel channel = Channel.Retrieve(idChannel);
@@ -2600,20 +2605,20 @@ namespace TvService
       card = null;
       StopEPGgrabber();
       IUser userCopy = null;
-      List<ICardTuneReservationTicket> tickets = null;
-      CardReservationTimeshifting cardResImpl = new CardReservationTimeshifting(this);
+      ICollection<ICardTuneReservationTicket> tickets = null;
+      var cardResImpl = new CardReservationTimeshifting(this);
       int failedCardId = -1;
+      TvResult result = TvResult.UnknownError;
       try
-      {
-        TvResult result;
-        AdvancedCardAllocationStatic cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, this);
+      {        
+        var cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, this);
         List<CardDetail> freeCardsForReservation = cardAllocationStatic.GetFreeCardsForChannel(_cards, channel, ref user, out result);
         if (!HasFreeCardsForReservation(freeCardsForReservation, ref result))
         {
           return result;
         }
 
-        List<CardDetail> freeCardsIterated = new List<CardDetail>();
+        var freeCardsIterated = new List<CardDetail>();
         
         int cardsIterated = 0;
         bool moreCardsAvailable = true;
@@ -2626,8 +2631,8 @@ namespace TvService
             return result;
           }
 
-          AdvancedCardAllocationTicket cardAllocationTicket = new AdvancedCardAllocationTicket(_layer, this, tickets);
-          List<CardDetail> freeCards = cardAllocationTicket.UpdateFreeCardsForChannelBasedOnTicket(_cards,
+          var cardAllocationTicket = new AdvancedCardAllocationTicket(_layer, this, tickets);
+          ICollection<CardDetail> freeCards = cardAllocationTicket.UpdateFreeCardsForChannelBasedOnTicket(_cards,
                                                                                                    freeCardsForReservation,
                                                                                                    user, out result);
 
@@ -2648,30 +2653,27 @@ namespace TvService
         
           Log.Write("Controller: try max {0} of {1} cards for timeshifting", maxCards, freeCards.Count);
           //keep tuning each card until we are succesful                   
-          for (int i = 0; i < maxCards; i++)
+          int i = 0;
+          foreach (CardDetail cardInfo in freeCards)          
           {
             if (!moreCardsAvailable)
             {
               break;
             }
-            CardDetail cardInfo = freeCards[i];
-            userCopy = UserFactory.CreateBasicUser(user.Name, cardInfo.Id);            
+            //CardDetail cardInfo = freeCards[cardIteration];
+            userCopy = UserFactory.CreateBasicUser(user.Name, cardInfo.Id, user.Priority);
             if (forceCardId && user.CardId != cardInfo.Id)
             {
               failedCardId = cardInfo.Id;
               result = TvResult.AllCardsBusy;
               continue;
             }
-            IChannel tuneChannel = cardInfo.TuningDetail;
-
+            
             SetupTimeShiftingFolders(cardInfo);
-
-            ITvCardHandler tvcard = _cards[cardInfo.Id];
-            ICardTuneReservationTicket ticket;
-
+            ITvCardHandler tvcard = _cards[cardInfo.Id];            
             try
             {
-              ticket = tickets.Find(t => t.CardId == cardInfo.Id);
+              ICardTuneReservationTicket ticket = GetTicketByCardId(cardInfo, tickets);
               if (ticket == null)
               {
                 Log.Write("Controller: StartTimeShifting - could not find cardreservation on card:{0}",
@@ -2685,57 +2687,25 @@ namespace TvService
               bool isTimeshifting = ticket.IsAnySubChannelTimeshifting;
               if (isTimeshifting)
               {
-                RemoveInactiveUsers(ticket, tvcard);                
-                if (ticket.IsOwner) //it seems we are the owner
-                {                                    
-                  if (!ticket.IsSameTransponder)
-                  {
-
-                    bool hasRecordingUsers = ticket.RecordingUsers.Exists(t => t.IsAdmin);
-                    if (!hasRecordingUsers)
-                    {
-                      bool existingLeechFoundOnSameCard = ExistingLeechFoundOnSameCard(ticket);
-                      if (existingLeechFoundOnSameCard)
-                      {
-                        bool kickLeechingUsersIfNoMoreCardsAvail = KickLeechingUsersIfNoMoreCardsAvail(tvcard, user,
-                                                                                                       cardInfo, ticket, i,
-                                                                                                       maxCards);
-
-                        bool cardsAvailable = ((i + 1) < maxCards);
-                        if (!kickLeechingUsersIfNoMoreCardsAvail && cardsAvailable)
-                        {
-                          Log.Write(
-                            "Controller: skipping card:{0} since other users are present on the same channel and there are still cards available.",
-                            userCopy.CardId);
-                          //TODO: what if the following cards fail, should we then try and kick the leech user, in order to make room for a tune ?
-                          CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);
-                          failedCardId = cardInfo.Id;
-                          continue;
-                        }
-                      }
-                    }
-                    else
-                    {
-                      Log.Write(
-                            "Controller: skipping card:{0} since is it busy recording.",
-                            userCopy.CardId);
-                      CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);
-                      failedCardId = cardInfo.Id;
-                      continue;
-                    }
-                  }
+                RemoveInactiveUsers(ticket);                
+                if (ticket.IsSameTransponder)
+                {
+                  SameTransponder(userCopy, ticket);
                 }
                 else
                 {
-                  bool existingOwnerFoundOnSameChannel = ExistingOwnerFoundOnSameChannel(ticket);
-                  if (existingOwnerFoundOnSameChannel)      
+                  bool isDifferentTransponderAvail = DifferentTransponder(user, maxCards, tickets, userCopy, ticket, tvcard, cardInfo, i);
+                  if (!isDifferentTransponderAvail)
                   {
-                    InheritSubChannelFromOwner(userCopy, ticket);
-                  }  
-                }                                  
+                    CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);
+                    failedCardId = cardInfo.Id;
+                    continue;
+                  }
+                }
               }
 
               //tune to the new channel                  
+              IChannel tuneChannel = cardInfo.TuningDetail;
               result = CardTune(ref userCopy, tuneChannel, channel, ticket, cardResImpl);
               if (result != TvResult.Succeeded)
               {
@@ -2769,7 +2739,7 @@ namespace TvService
             {              
               if (result != TvResult.Succeeded)
               {
-                moreCardsAvailable = _maxFreeCardsToTry == 0 || _maxFreeCardsToTry > cardsIterated;
+                moreCardsAvailable = AreMoreCardsAvailable(cardsIterated, maxCards, i);
                 if (moreCardsAvailable)
                 {
                   Log.Write("Controller: Timeshifting failed, lets try next available card.");
@@ -2780,6 +2750,7 @@ namespace TvService
                 }
                 cardChanged = (maxCards > 1);
               }
+              i++;
             }
             break; //if we made it to the bottom, then we have a successful timeshifting.          
           }
@@ -2787,12 +2758,7 @@ namespace TvService
           {
             break;
           }
-        } //end of while
-
-        if (result != TvResult.Succeeded)
-        {
-          StartEPGgrabber();
-        }
+        } //end of while       
 
         return result;
       }
@@ -2801,8 +2767,7 @@ namespace TvService
         if (userCopy != null)
         {
           failedCardId = userCopy.FailedCardId;
-        }
-        StartEPGgrabber();
+        }        
         Log.Write(ex);
         return TvResult.UnknownError;
       }
@@ -2812,11 +2777,77 @@ namespace TvService
         {
           user.FailedCardId = failedCardId;
         }
-        CardReservationHelper.CancelAllCardReservations(tickets, _cards);        
+        CardReservationHelper.CancelAllCardReservations(tickets, _cards);
+
+        if (result != TvResult.Succeeded)
+        {
+          StartEPGgrabber();
+        }
       }
     }
 
-    private void UpdateFreeCardsIterated(List<CardDetail> freeCardsIterated, List<CardDetail> freeCards)
+    private bool AreMoreCardsAvailable(int cardsIterated, int maxCards, int i)
+    {
+      return (i < maxCards) && (_maxFreeCardsToTry == 0 || _maxFreeCardsToTry > cardsIterated);
+    }
+
+    private static ICardTuneReservationTicket GetTicketByCardId(CardDetail cardInfo, IEnumerable<ICardTuneReservationTicket> tickets)
+    {
+      return tickets.FirstOrDefault(t => t.CardId == cardInfo.Id);
+    }
+
+    private bool DifferentTransponder(IUser user, int maxCards, ICollection<ICardTuneReservationTicket> tickets, IUser userCopy, ICardTuneReservationTicket ticket, ITvCardHandler tvcard, CardDetail cardInfo, int cardIteration)
+    {
+      bool isDifferentTransponderAvail = false; 
+      bool foundAnyUsersOnCard = FoundAnyUsersOnCard(ticket);
+      if (foundAnyUsersOnCard)
+      {
+        bool foundCandidateForKicking = FoundCandidateForKicking(ticket);
+        if (foundCandidateForKicking)
+        {
+          bool kickLeechingUsersIfNoMoreCardsAvail = KickLeechingUsersIfNoMoreCardsAvail(tvcard, user,
+                                                                                          cardInfo, ticket,
+                                                                                          cardIteration,
+                                                                                          maxCards);
+
+          bool cardsAvailable = ((cardIteration + 1) < maxCards);
+          if (!kickLeechingUsersIfNoMoreCardsAvail && cardsAvailable)
+          {
+            Log.Write(
+              "Controller: skipping card:{0} since other users are present on the same channel and there are still cards available.",
+              userCopy.CardId);
+              //TODO: what if the following cards fail, should we then try and kick the leech user, in order to make room for a tune ?            
+          }
+          else
+          {
+            isDifferentTransponderAvail = true;
+          }
+        }
+        else
+        {
+          Log.Write(
+            "Controller: skipping card:{0} since is it busy (users present with higher priority).",
+            userCopy.CardId);
+          CardReservationHelper.CancelCardReservationAndRemoveTicket(tvcard, tickets);          
+        }
+      }
+      else
+      {
+        isDifferentTransponderAvail = true;
+      }
+      return isDifferentTransponderAvail;
+    }
+
+    private static void SameTransponder(IUser userCopy, ICardTuneReservationTicket ticket)
+    {
+      bool existingOwnerFoundOnSameChannel = ExistingOwnerFoundOnSameChannel(ticket);
+      if (existingOwnerFoundOnSameChannel)
+      {
+        InheritSubChannelFromOwner(userCopy, ticket);
+      }
+    }
+
+    private static void UpdateFreeCardsIterated(ICollection<CardDetail> freeCardsIterated, IEnumerable<CardDetail> freeCards)
     {
       foreach (CardDetail card in freeCards)
       {
@@ -2827,7 +2858,7 @@ namespace TvService
       }
     }
 
-    private bool HasFreeCards(List<CardDetail> freeCards, ref TvResult result)
+    private bool HasFreeCards(ICollection<CardDetail> freeCards, ref TvResult result)
     {
       bool hasFreeCards = (freeCards.Count > 0);
       if (!hasFreeCards)
@@ -2840,7 +2871,7 @@ namespace TvService
       return hasFreeCards;
     }
 
-    private bool HasTickets(List<ICardTuneReservationTicket> tickets, ref TvResult result)
+    private bool HasTickets(ICollection<ICardTuneReservationTicket> tickets, ref TvResult result)
     {
       bool hasTickets = (tickets.Count > 0);
       if (!hasTickets)
@@ -2857,7 +2888,7 @@ namespace TvService
       return hasTickets;
     }
 
-    private bool HasFreeCardsForReservation(List<CardDetail> freeCardsForReservation, ref TvResult result)
+    private bool HasFreeCardsForReservation(ICollection freeCardsForReservation, ref TvResult result)
     {
       bool hasFreeCardsForReservation = (freeCardsForReservation.Count > 0);
 
@@ -2872,7 +2903,7 @@ namespace TvService
       return hasFreeCardsForReservation;
     }
 
-    private void InheritSubChannelFromOwner(IUser userCopy, ICardTuneReservationTicket ticket)
+    private static void InheritSubChannelFromOwner(IUser userCopy, ICardTuneReservationTicket ticket)
     {
       Log.Write("Controller: leech user={0} inherits subch={1}",
                               userCopy.Name, ticket.OwnerSubchannel);      
@@ -2881,12 +2912,17 @@ namespace TvService
 
   
 
-    private bool ExistingLeechFoundOnSameCard(ICardTuneReservationTicket ticket)
+    private static bool FoundCandidateForKicking(ICardTuneReservationTicket ticket)
     {
-      return ((ticket.NumberOfOtherUsersOnCurrentCard > 0)  && ticket.IsOwner);
+      return (FoundAnyUsersOnCard(ticket) && (ticket.HasHighestPriority || (ticket.IsOwner && ticket.HasEqualOrHigherPriority)));
+    }
+
+    private static bool FoundAnyUsersOnCard(ICardTuneReservationTicket ticket)
+    {
+      return (ticket.NumberOfOtherUsersOnCurrentCard > 0);
     }
     
-    private bool ExistingOwnerFoundOnSameChannel(ICardTuneReservationTicket ticket)
+    private static bool ExistingOwnerFoundOnSameChannel(ICardTuneReservationTicket ticket)
     {      
       return (ticket.OwnerSubchannel > -1);
     }
@@ -2913,12 +2949,14 @@ namespace TvService
           }
 
           Log.Write(
-            "Controller: kicking leech user {0} off card {1} on channel {2} (subchannel #{3}) since owner {4} (subchannel #{5}) changed transponder and there are no more cards available",
+            "Controller: kicking leech user '{0}' with prio={1} off card={2} on channel={3} (subchannel #{4}) since owner '{5}' with prio={6} (subchannel #{7}) changed transponder and there are no more cards available",
             activeUser.Name,
+            activeUser.Priority,
             cardInfo.Card.Name,
             channelInfo,
             activeUser.SubChannel,
             user.Name,
+            user.Priority,
             user.SubChannel);
 
           StopTimeShifting(ref activeUser, TvStoppedReason.OwnerChangedTS);
@@ -2929,14 +2967,14 @@ namespace TvService
     }
 
     private void GetUser(ITvCardHandler tvcard, ref IUser user) {
-      ITvCardContext context = tvcard.Card.Context as ITvCardContext;
+      var context = tvcard.Card.Context as ITvCardContext;
       if (context != null)
       {
         context.GetUser(ref user);
       }
     }
 
-    private void RemoveInactiveUsers(ICardTuneReservationTicket ticket, ITvCardHandler tvcard)
+    private void RemoveInactiveUsers(ICardTuneReservationTicket ticket)
     {
       for (int i = 0; i < ticket.InactiveUsers.Count; i++ )
       {
@@ -2947,7 +2985,7 @@ namespace TvService
       }
     }   
 
-    private bool GetCardChanged(VirtualCard card, string intialTimeshiftingFilename)
+    private static bool GetCardChanged(VirtualCard card, string intialTimeshiftingFilename)
     {
       bool cardChanged = false;
       if (card != null && card.TimeShiftFileName != null)
@@ -2957,13 +2995,6 @@ namespace TvService
       }
       return cardChanged;
     }
-
-    
-
-    
-
-    
-
     
     private string GetIntialTimeshiftingFilename(VirtualCard initialCard)
     {
@@ -2993,7 +3024,7 @@ namespace TvService
       }
     }
 
-    private int GetMaxCards(List<CardDetail> freeCards)
+    private int GetMaxCards(ICollection<CardDetail> freeCards)
     {
       int maxCards;
       if (_maxFreeCardsToTry == 0)
@@ -3607,7 +3638,7 @@ namespace TvService
       if (user == null)
       {
         return null;
-      }
+      }      
 
       IList<Channel> tvChannelList = _layer.GetTVGuideChannelsForGroup(idGroup);
 
@@ -3619,6 +3650,7 @@ namespace TvService
 
       if (channelStates != null)
       {
+        user.Priority = UserFactory.GetDefaultPriority(user.Name);
         channelStatesList = channelStates.GetChannelStates(_cards, tvChannelList, ref user, this);
       }
 
@@ -3640,6 +3672,7 @@ namespace TvService
 
       if (user != null)
       {
+        user.Priority = UserFactory.GetDefaultPriority(user.Name);
         Dictionary<int, ChannelState> channelStates = GetAllChannelStatesCached(user);
 
         if (channelStates != null)
@@ -3985,7 +4018,7 @@ namespace TvService
       if (user.CardId > 0)
       {
         IUser newUser = (IUser)user.Clone();
-        Dictionary<int, ITvCardHandler>.Enumerator enumerator = CardCollection.GetEnumerator();
+        IEnumerator<KeyValuePair<int, ITvCardHandler>> enumerator = CardCollection.GetEnumerator();
 
         ITVCard card = CardCollection[user.CardId].Card;
         while (enumerator.MoveNext())
@@ -3997,7 +4030,7 @@ namespace TvService
           if (key.Value.Card.Context == card.Context)
             continue;
 
-          ITvCardContext context = key.Value.Card.Context as ITvCardContext;
+          var context = key.Value.Card.Context as ITvCardContext;
           if (context != null)
           {
             if (context.DoesExists(newUser))

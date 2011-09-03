@@ -20,6 +20,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TvControl;
 using TvLibrary.Interfaces;
 
@@ -50,10 +51,33 @@ namespace TvService
     private readonly List<IUser> _recordingUsers = new List<IUser>();
     private readonly IList<IUser> _timeshiftingUsers = new List<IUser>();
     private int _pendingSubchannel;
+    private readonly bool _hasHighestPriority;
+    private readonly bool _hasEqualOrHigherPriority;
 
     #endregion
 
-    public CardTuneReservationTicket(IUser user, IChannel tuningDetail, bool isSameTransponder, int numberOfOtherUsersOnSameChannel, bool isAnySubChannelTimeshifting, List<IUser> inactiveUsers, List<IUser> activeUsers, List<IUser> users, int ownerSubchannel, bool isOwner, int idCard, int numberOfChannelsDecrypting, bool isFreeToAir, int numberOfOtherUsersOnCurrentCard, List<IUser> recUsers, List<IUser> tsUsers, bool conflictingSubchannelFound, int numberOfUsersOnSameCurrentChannel, bool isCamAlreadyDecodingChannel)
+    public CardTuneReservationTicket(
+      IUser user, 
+      IChannel tuningDetail, 
+      bool isSameTransponder, 
+      int numberOfOtherUsersOnSameChannel, 
+      bool isAnySubChannelTimeshifting, 
+      List<IUser> inactiveUsers, 
+      List<IUser> activeUsers, 
+      List<IUser> users, 
+      int ownerSubchannel, 
+      bool isOwner, 
+      int idCard, 
+      int numberOfChannelsDecrypting, 
+      bool isFreeToAir, 
+      int numberOfOtherUsersOnCurrentCard, 
+      List<IUser> recUsers, 
+      List<IUser> tsUsers, 
+      bool conflictingSubchannelFound, 
+      int numberOfUsersOnSameCurrentChannel, 
+      bool isCamAlreadyDecodingChannel,
+      bool hasHighestPriority,
+      bool hasEqualOrHigherPriority)
     {
       _pendingSubchannel = -1;
       _user = user;
@@ -75,6 +99,8 @@ namespace TvService
       _inactiveUsers = inactiveUsers;
       _activeUsers = activeUsers;
       _users = users;
+      _hasHighestPriority = hasHighestPriority;
+      _hasEqualOrHigherPriority = hasEqualOrHigherPriority;               
     }    
 
     public IChannel TuningDetail
@@ -115,6 +141,22 @@ namespace TvService
     public int OwnerSubchannel
     {
       get { return _ownerSubchannel; }
+    }
+
+    public bool HasHighestPriority
+    {     
+      get
+      {
+        return _hasHighestPriority;        
+      }
+    }
+
+    public bool HasEqualOrHigherPriority
+    {      
+      get
+      {
+        return _hasEqualOrHigherPriority;        
+      }
     }
 
     public bool IsOwner

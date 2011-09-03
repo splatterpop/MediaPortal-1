@@ -18,6 +18,7 @@
 #endregion
 
 using System.Collections.Generic;
+using System.Linq;
 using TvControl;
 using TvDatabase;
 using TvLibrary.Interfaces;
@@ -28,22 +29,22 @@ namespace TvService
 
   public class AdvancedCardAllocationTicket : AdvancedCardAllocation
   {
-    private readonly List<ICardTuneReservationTicket> _tickets;
+    protected readonly ICollection<ICardTuneReservationTicket> _tickets;
 
-    public AdvancedCardAllocationTicket(TvBusinessLayer businessLayer, TVController controller, List<ICardTuneReservationTicket> tickets)
+    public AdvancedCardAllocationTicket(TvBusinessLayer businessLayer, IController controller, ICollection<ICardTuneReservationTicket> tickets)
       : base(businessLayer, controller)
     {
       _tickets = tickets;
     }
 
     //used by recording
-    public List<CardDetail> UpdateAvailableCardsForChannelBasedOnTicket(List<CardDetail> cardsAvailable)
+    /*public List<CardDetail> UpdateAvailableCardsForChannelBasedOnTicket(IEnumerable<CardDetail> cardsAvailable)
     {
-      List<CardDetail> cardetails = new List<CardDetail>();
+      var cardetails = new List<CardDetail>();
 
       foreach (CardDetail cardDetail in cardsAvailable)
       {
-        ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == cardDetail.Card.IdCard);
+        ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == cardDetail.Card.IdCard);
 
         if (ticket != null)
         {          
@@ -55,15 +56,14 @@ namespace TvService
       }
 
       cardetails.Sort();
-
       return cardetails;
-    }
+    }*/
 
     private void LogNumberOfOtherUsersFound(CardDetail cardDetail)
     {
       if (LogEnabled && cardDetail.Card.IdCard > 0)
       {
-        TVController tvController = _controller as TVController;
+        var tvController = _controller as TVController;
         if (tvController != null)
         {
           ITvCardHandler card = tvController.CardCollection[cardDetail.Card.IdCard];
@@ -73,13 +73,13 @@ namespace TvService
     }
 
     //used by timeshifting
-    public List<CardDetail> UpdateFreeCardsForChannelBasedOnTicket(Dictionary<int, ITvCardHandler> cards, List<CardDetail> cardsAvailable, IUser user, out TvResult result)
+    public ICollection<CardDetail> UpdateFreeCardsForChannelBasedOnTicket(IDictionary<int, ITvCardHandler> cards, ICollection<CardDetail> cardsAvailable, IUser user, out TvResult result)
     {
-      List<CardDetail> cardetails = new List<CardDetail>();
+      var cardetails = new List<CardDetail>();
 
       foreach (CardDetail cardDetail in cardsAvailable)
       {
-        ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == cardDetail.Card.IdCard);
+        ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == cardDetail.Card.IdCard);
 
         if (ticket != null)
         {          
@@ -120,7 +120,7 @@ namespace TvService
     protected override int GetNumberOfUsersOnCurrentChannel(ITvCardHandler tvcard, IUser user)
     {
       int numberOfUsersOnCurrentChannel = 0;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);      
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);      
 
       if (ticket != null)
       {
@@ -133,7 +133,7 @@ namespace TvService
     protected override bool IsFreeToAir(ITvCardHandler tvcard, ref IUser user)
     {
       bool isFreeToAir = true;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);
 
       if (ticket != null)
       {
@@ -145,7 +145,7 @@ namespace TvService
     protected override int NumberOfChannelsDecrypting(ITvCardHandler tvcard)
     {
       int numberOfChannelsDecrypting = 0;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);
 
       if (ticket != null)
       {
@@ -157,7 +157,7 @@ namespace TvService
     protected override bool IsCamAlreadyDecodingChannel(ITvCardHandler tvcard, IChannel tuningDetail)
     {
       bool isCamAlreadyDecodingChannel = false;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);
 
       if (ticket != null)
       {
@@ -171,11 +171,23 @@ namespace TvService
     protected override bool IsOwnerOfCard(ITvCardHandler tvcard, IUser user)
     {
       bool isOwnerOfCard = false;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);
 
       if (ticket != null)
       {
-        isOwnerOfCard = ticket.IsOwner;
+        bool hasHighestPriority = ticket.HasHighestPriority;        
+        if (hasHighestPriority)
+        {
+          isOwnerOfCard = true;
+        }
+        else
+        {
+          bool hasEqualOrHigherPriority = ticket.HasEqualOrHigherPriority;
+          if (hasEqualOrHigherPriority)
+          {
+            isOwnerOfCard = ticket.IsOwner;
+          }
+        }
       }
       return isOwnerOfCard;
     }
@@ -183,7 +195,7 @@ namespace TvService
     protected override bool IsSameTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
     {
       bool isSameTransponder = false;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);
 
       if (ticket != null)
       {
@@ -195,7 +207,7 @@ namespace TvService
     protected override int NumberOfOtherUsersOnCurrentCard(ITvCardHandler tvcard, IUser user)
     {
       int numberOfOtherUsersOnCurrentCard = 0;
-      ICardTuneReservationTicket ticket = _tickets.Find(t => t.CardId == tvcard.DataBaseCard.IdCard);
+      ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == tvcard.DataBaseCard.IdCard);
 
       if (ticket != null)
       {

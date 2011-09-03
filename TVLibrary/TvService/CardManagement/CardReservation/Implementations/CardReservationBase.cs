@@ -40,6 +40,7 @@ namespace TvService
     TunePending,
     Tuning,
     Tuned,
+    TuneCancelled,
     TuneFailed    
   }
 
@@ -193,14 +194,23 @@ namespace TvService
       CardTuneState cardTuneState;
       int ticketId = 0;
       bool isCardAvail;
+      bool hasUserHigherPriorityThanBlockingUser = false;
       lock (tvcard.Tuner.CardReservationsLock)
       {
         isCardAvail = IsCardAvail(tvcard);
+        if (!isCardAvail)
+        {
+          IUser blockingUser = GetBlockingUser(tvcard);
+          hasUserHigherPriorityThanBlockingUser = (HasUserHigherPriorityThanBlockingUser(user, blockingUser));           
+          if (hasUserHigherPriorityThanBlockingUser)
+          {
+            tvcard.Tuner.CardTuneState = CardTuneState.TuneCancelled;
+          }
+        }
       }
       if (!isCardAvail)
       {
-        IUser blockingUser = GetBlockingUser(tvcard);
-        if (HasUserHigherPriorityThanBlockingUser(user, blockingUser))
+        if (hasUserHigherPriorityThanBlockingUser)
         {
           tvcard.Tuner.CancelTune(tvcard.Tuner.ActiveCardTuneReservationTicket.PendingSubchannel);          
           lock (tvcard.Tuner.CardReservationsLock)
@@ -227,6 +237,8 @@ namespace TvService
           int numberOfOtherUsersOnSameChannel = 0;
           int numberOfOtherUsersOnCurrentCard = 0;
 
+          bool hasUserHighestPriority = false;
+          bool hasUserEqualOrHigherPriority = false;
           bool isCamAlreadyDecodingChannel = false;
           bool conflictingSubchannelFound = false;
           bool isRecordingAnyUser = false;
@@ -242,14 +254,15 @@ namespace TvService
           if (context != null)
           {
             context.GetUser(ref user);
-          }
+            hasUserHighestPriority = context.HasUserHighestPriority(user);
+            hasUserEqualOrHigherPriority = context.HasUserEqualOrHigherPriority(user);
+          }          
 
           int currentChannelId = tvcard.CurrentDbChannel(ref user);
 
           for (int i = users.Count - 1; i > -1; i--)
           {
-            IUser actualUser = users[i];
-   
+            IUser actualUser = users[i];                           
             CardReservationHelper.AddUserIfRecording(tvcard, ref actualUser, recUsers);
             CardReservationHelper.AddUserIfTimeshifting(tvcard, ref actualUser, tsUsers);
 
@@ -325,7 +338,7 @@ namespace TvService
           bool isFreeToAir = CardReservationHelper.IsFreeToAir(tvcard, user);
 
           cardTuneReservationTicket = new CardTuneReservationTicket
-              (
+              (                
               user,
               tuningDetail, 
               isTunedToTransponder, 
@@ -344,7 +357,9 @@ namespace TvService
               tsUsers,               
               conflictingSubchannelFound,
               numberOfUsersOnSameCurrentChannel,
-              isCamAlreadyDecodingChannel);
+              isCamAlreadyDecodingChannel,
+              hasUserHighestPriority,
+              hasUserEqualOrHigherPriority);
           tvcard.Tuner.ActiveCardTuneReservationTicket = cardTuneReservationTicket;
           tvcard.Tuner.ReservationsForTune.Add(cardTuneReservationTicket);          
         }

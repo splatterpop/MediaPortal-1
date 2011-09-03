@@ -33,7 +33,7 @@ namespace TvControl
     /// Gets an integer defining the user's card lock priority (higher number=higher priority)
     /// </summary>    
     /// <returns>user priority</returns>
-    int Priority { get; set; }
+    int? Priority { get; set; }
 
     /// <summary>
     /// Gets a list of all channel states    

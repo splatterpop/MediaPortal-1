@@ -52,5 +52,7 @@ namespace TvService
     bool IsCamAlreadyDecodingChannel { get; }
     IUser User { get; }
     int PendingSubchannel { get; set; }
+    bool HasHighestPriority { get; }
+    bool HasEqualOrHigherPriority { get; }
   }
 }

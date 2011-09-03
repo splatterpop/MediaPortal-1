@@ -85,6 +85,7 @@ namespace SetupTv.Sections
       this.subchannels = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
       this.chkSynch = new MediaPortal.UserInterface.Controls.MPCheckBox();
       this.chkRndPrio = new MediaPortal.UserInterface.Controls.MPCheckBox();
+      this.btnCustom = new MediaPortal.UserInterface.Controls.MPButton();
       this.mpGroupBox1.SuspendLayout();
       this.SuspendLayout();
       // 
@@ -100,6 +101,7 @@ namespace SetupTv.Sections
       // 
       this.mpGroupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                   | System.Windows.Forms.AnchorStyles.Right)));
+      this.mpGroupBox1.Controls.Add(this.btnCustom);
       this.mpGroupBox1.Controls.Add(this.lblIgnored);
       this.mpGroupBox1.Controls.Add(this.txtIgnored);
       this.mpGroupBox1.Controls.Add(this.lblDisc);
@@ -598,6 +600,16 @@ namespace SetupTv.Sections
       this.chkRndPrio.UseVisualStyleBackColor = true;
       this.chkRndPrio.CheckedChanged += new System.EventHandler(this.chkRndPrio_CheckedChanged);
       // 
+      // btnCustom
+      // 
+      this.btnCustom.Location = new System.Drawing.Point(323, 149);
+      this.btnCustom.Name = "btnCustom";
+      this.btnCustom.Size = new System.Drawing.Size(36, 23);
+      this.btnCustom.TabIndex = 80;
+      this.btnCustom.Text = "Custom";
+      this.btnCustom.UseVisualStyleBackColor = true;
+      this.btnCustom.Click += new System.EventHandler(this.btnCustom_Click);
+      // 
       // TestChannels
       // 
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -685,5 +697,6 @@ namespace SetupTv.Sections
     private MediaPortal.UserInterface.Controls.MPLabel lblIgnored;
     private MediaPortal.UserInterface.Controls.MPNumericTextBox txtIgnored;
     private MediaPortal.UserInterface.Controls.MPCheckBox chkRndPrio;
+    private MediaPortal.UserInterface.Controls.MPButton btnCustom;
   }
 }

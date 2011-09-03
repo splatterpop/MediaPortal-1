@@ -34,19 +34,19 @@ namespace TvService
   {
     #region private members   
 
-    public ChannelStates(TvBusinessLayer businessLayer, TVController controller) : base(businessLayer, controller)
+    public ChannelStates(TvBusinessLayer businessLayer, IController controller) : base(businessLayer, controller)
     {
       LogEnabled = false;
     }    
 
-    private static void UpdateChannelStateUsers(IList<IUser> allUsers, ChannelState chState, int channelId)
+    private static void UpdateChannelStateUsers(IEnumerable<IUser> allUsers, ChannelState chState, int channelId)
     {
-      for (int i = 0; i < allUsers.Count; i++)
+      foreach (IUser t in allUsers) 
       {
         IUser u = null;
         try
         {
-          u = allUsers[i];
+          u = t;
         }
         catch (NullReferenceException) {}
 
@@ -89,24 +89,22 @@ namespace TvService
       }
     }
 
-    private static IList<IUser> GetActiveUsers(Dictionary<int, ITvCardHandler> cards)
+    private static IList<IUser> GetActiveUsers(IDictionary<int, ITvCardHandler> cards)
     {
       // find all users
       IList<IUser> allUsers = new List<IUser>();
 
       try
       {
-        Dictionary<int, ITvCardHandler>.ValueCollection cardHandlers = cards.Values;
+        ICollection<ITvCardHandler> cardHandlers = cards.Values;
         foreach (ITvCardHandler cardHandler in cardHandlers)
         {
           //get a list of all users for this card
           IUser[] usersAvail = cardHandler.Users.GetUsers();
           if (usersAvail != null)
-          {
-            //for each user
-            for (int i = 0; i < usersAvail.Length; ++i)
+          {            
+            foreach (IUser tmpUser in usersAvail) 
             {
-              IUser tmpUser = usersAvail[i];
               if (!tmpUser.IsAdmin)
               {
                 tmpUser.ChannelStates = new Dictionary<int, ChannelState>();
@@ -138,9 +136,8 @@ namespace TvService
           return; // no users, no point in continuing.
         }        
 
-        Dictionary<int, ChannelState> TSandRecStates = null;
-
-        Dictionary<int, ITvCardHandler>.ValueCollection cardHandlers = cards.Values;
+        IDictionary<int, ChannelState> TSandRecStates = null;
+        ICollection<ITvCardHandler> cardHandlers = cards.Values;
 
         IDictionary<int, IList<int>> channelMapping = GetChannelMapping();
         IDictionary<int, IList<IChannel>> tuningChannelMapping = GetTuningChannels();
@@ -236,7 +233,7 @@ namespace TvService
     private IDictionary<int, IList<IChannel>> GetTuningChannels()
     {
       Stopwatch stopwatch = Stopwatch.StartNew();
-      Dictionary<int, IList<IChannel>> result = new Dictionary<int, IList<IChannel>>();
+      var result = new Dictionary<int, IList<IChannel>>();
       IList<TuningDetail> tuningDetails = TuningDetail.ListAll();
       foreach (TuningDetail tuningDetail in tuningDetails)
       {
@@ -257,7 +254,7 @@ namespace TvService
     private static IDictionary<int, IList<int>> GetChannelMapping()
     {
       Stopwatch stopwatch = Stopwatch.StartNew();
-      Dictionary<int, IList<int>> result = new Dictionary<int, IList<int>>();
+      var result = new Dictionary<int, IList<int>>();
       IList<ChannelMap> channelMaps = ChannelMap.ListAll();
       foreach (ChannelMap map in channelMaps)
       {
@@ -286,7 +283,7 @@ namespace TvService
       return cards != null && cards.Contains(card.IdCard);
     }
 
-    private static void RemoveAllTunableChannelStates(IList<IUser> allUsers)
+    private static void RemoveAllTunableChannelStates(IEnumerable<IUser> allUsers)
     {
       foreach (IUser user in allUsers)
       {
@@ -307,8 +304,8 @@ namespace TvService
       }
     }
 
-    private static void UpdateRecOrTSChannelStateForUsers(Channel ch, IList<IUser> allUsers,
-                                                          Dictionary<int, ChannelState> TSandRecStates)
+    private static void UpdateRecOrTSChannelStateForUsers(Channel ch, IEnumerable<IUser> allUsers,
+                                                          IDictionary<int, ChannelState> TSandRecStates)
     {
       ChannelState cs;
       TSandRecStates.TryGetValue(ch.IdChannel, out cs);
@@ -323,29 +320,27 @@ namespace TvService
       }
     }
 
-    private void CheckTransponderAllUsers(Channel ch, IList<IUser> allUsers, ITvCardHandler tvcard,
+    private void CheckTransponderAllUsers(Channel ch, IEnumerable<IUser> allUsers, ITvCardHandler tvcard,
                                                  IChannel tuningDetail)
     {
-      for (int i = 0; i < allUsers.Count; i++)
+      foreach (IUser user in allUsers) 
       {
-        IUser user = allUsers[i];
-
         //ignore admin users, like scheduler
         if (user.IsAdmin)
         {
           continue;
         }
 
-          bool checkTransponder = CheckTransponder( user, tvcard, tuningDetail);
-          if (checkTransponder)
-          {
-            UpdateChannelStateUser(user, ChannelState.tunable, ch.IdChannel);
-          } 
-          else
-          {
-            UpdateChannelStateUser(user, ChannelState.nottunable, ch.IdChannel);
-          }
-        } //foreach allusers end                               
+        bool checkTransponder = CheckTransponder( user, tvcard, tuningDetail);
+        if (checkTransponder)
+        {
+          UpdateChannelStateUser(user, ChannelState.tunable, ch.IdChannel);
+        } 
+        else
+        {
+          UpdateChannelStateUser(user, ChannelState.nottunable, ch.IdChannel);
+        }
+      }
     }
 
     #endregion
@@ -363,7 +358,7 @@ namespace TvService
       //call the real work as a thread in order to avoid slower channel changes.
       // find all users      
       IList<IUser> allUsers = GetActiveUsers(cards);
-      ThreadStart starter = delegate { DoSetChannelStates(cards, channels, allUsers, tvController); };
+      ThreadStart starter = () => DoSetChannelStates(cards, channels, allUsers, tvController);
       Thread setChannelStatesThread = new Thread(starter);
       setChannelStatesThread.Name = "Channel state thread";
       setChannelStatesThread.IsBackground = true;

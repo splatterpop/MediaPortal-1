@@ -18,6 +18,7 @@
 
 #endregion
 
+using TvControl;
 using TvLibrary.Interfaces;
 
 namespace TvService
@@ -31,8 +32,7 @@ namespace TvService
     protected override bool IsTunedToTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
     {
       return tvcard.Tuner.IsTunedToTransponder(tuningDetail);
-    }
-
+    }   
 
     #endregion
   }

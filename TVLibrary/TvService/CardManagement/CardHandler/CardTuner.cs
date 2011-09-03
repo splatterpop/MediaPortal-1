@@ -232,24 +232,15 @@ namespace TvService
       }
     }
 
-    private void RemoveTuneEvent(int subchannel)
+    private void RemoveTuneEvent(ManualResetEvent tuneEvt, int subchannel)
     {
-      //int subchannel = GetPendingSubchannel();
-      if (subchannel > -1)
+      if (tuneEvt != null)
       {
         lock (_tuneEvtLock)
         {
-          ManualResetEvent tuneEvt;
-          bool hasTuneEvt = _tuneEvents.TryGetValue(subchannel, out tuneEvt);
-          if (hasTuneEvt)
-          {
-            Log.Info("card: RemoveTuneEvent subch: {0}", subchannel);
-            if (tuneEvt != null)
-            {
-              tuneEvt.Close();
-            }
-            _tuneEvents.Remove(subchannel);
-          }
+          Log.Info("card: RemoveTuneEvent subch: {0}", subchannel);
+          tuneEvt.Close();
+          _tuneEvents.Remove(subchannel);
         }
       }
     }
@@ -271,15 +262,14 @@ namespace TvService
       {
         lock (_tuneEvtLock)
         {
-          Log.Info("card: AddTuneEvent subch: {0}", subchannel);
+          Log.Info("card: AddTuneEvent card: {0} / subch: {1}", _cardHandler.DataBaseCard.IdCard, subchannel);
           _tuneEvents[subchannel] = new ManualResetEvent(false);
         }
       }
     }
 
     private void SignalTuneEvent(int subchannel)
-    {
-      //int subchannel = GetPendingSubchannel();
+    {     
       if (subchannel > -1)
       {
         lock (_tuneEvtLock)
@@ -288,7 +278,7 @@ namespace TvService
           bool hasTuneEvt = _tuneEvents.TryGetValue(subchannel, out tuneEvt);
           if (hasTuneEvt && tuneEvt != null)
           {
-            Log.Info("card: SignalTuneEvent subch: {0}", subchannel);
+            Log.Info("card: SignalTuneEvent card: {0} / subch: {1}", _cardHandler.DataBaseCard.IdCard, subchannel);            
             tuneEvt.Set();
           }
         }
@@ -305,8 +295,9 @@ namespace TvService
       }
       if (hasTuneEvt && tuneEvt != null)
       {
-        Log.Info("card: WaitForCancelledTuneToFinish subch: {0}", subchannel);
+        Log.Info("card: WaitForCancelledTuneToFinish card: {0} / subch: {1}", _cardHandler.DataBaseCard.IdCard, subchannel);                    
         tuneEvt.WaitOne();
+        RemoveTuneEvent(tuneEvt, subchannel);
       }
     }
 
@@ -324,7 +315,7 @@ namespace TvService
       {
         if (_cardHandler.DataBaseCard.Enabled == false)
           return TvResult.CardIsDisabled;
-        Log.Info("card: Tune {0} to {1}", _cardHandler.DataBaseCard.IdCard, channel.Name);             
+        Log.Info("card: Tune on card {0} to subchannel {1}", _cardHandler.DataBaseCard.IdCard, channel.Name);             
         if (_cardHandler.IsLocal == false)
         {
           try
@@ -418,8 +409,7 @@ namespace TvService
 
     public void CleanUpPendingTune(int pendingSubchannel)
     {
-      SignalTuneEvent(pendingSubchannel);
-      RemoveTuneEvent(pendingSubchannel);
+      SignalTuneEvent(pendingSubchannel);      
     }
 
     private TvResult AfterTune(IUser user, int idChannel, ITvSubChannel result)
@@ -464,48 +454,51 @@ namespace TvService
       _cardHandler.Card.CamType = (CamType)_cardHandler.DataBaseCard.CamType;
       _cardHandler.SetParameters();
 
-      //check if transponder differs
-      ITvCardContext context = _cardHandler.Card.Context as ITvCardContext;
+      //check if transponder differs      
       if (_cardHandler.Card.SubChannels.Length > 0)
       {
         if (IsTunedToTransponder(channel) == false)
-        {          
-          if (context.IsOwner(user) || user.IsAdmin)
+        {
+          var context = _cardHandler.Card.Context as ITvCardContext;
+          if (context != null)           
           {
-            Log.Debug("card: to different transponder");
-
-            //remove all subchannels, except for this user...
-            IUser[] users = context.Users;
-            for (int i = 0; i < users.Length; ++i)
+            if (context.HasUserHighestPriority(user) || context.IsOwner(user) && context.HasUserEqualOrHigherPriority(user))
             {
-              if (users[i].Name != user.Name)
+              Log.Debug("card: to different transponder");
+
+              //remove all subchannels, except for this user...
+              IUser[] users = context.Users;
+              for (int i = 0; i < users.Length; ++i)
               {
-                Log.Debug("  stop subchannel: {0} user: {1}", i, users[i].Name);
-
-                //fix for b2b mantis; http://mantis.team-mediaportal.com/view.php?id=1112
-                if (users[i].IsAdmin)
-                  // if we are stopping an on-going recording/schedule (=admin), we have to make sure that we remove the schedule also.
+                if (users[i].Name != user.Name)
                 {
-                  Log.Debug("user is scheduler: {0}", users[i].Name);
-                  int recScheduleId = RemoteControl.Instance.GetRecordingSchedule(users[i].CardId,
-                                                                                  users[i].IdChannel);
+                  Log.Debug("  stop subchannel: {0} user: {1}", i, users[i].Name);
 
-                  if (recScheduleId > 0)
+                  //fix for b2b mantis; http://mantis.team-mediaportal.com/view.php?id=1112
+                  if (users[i].IsAdmin)
+                    // if we are stopping an on-going recording/schedule (=admin), we have to make sure that we remove the schedule also.
                   {
-                    Schedule schedule = Schedule.Retrieve(recScheduleId);
-                    Log.Info("removing schedule with id: {0}", schedule.IdSchedule);
-                    RemoteControl.Instance.StopRecordingSchedule(schedule.IdSchedule);
-                    schedule.Delete();
+                    Log.Debug("user is scheduler: {0}", users[i].Name);
+                    int recScheduleId = RemoteControl.Instance.GetRecordingSchedule(users[i].CardId,
+                                                                                    users[i].IdChannel);
+
+                    if (recScheduleId > 0)
+                    {
+                      Schedule schedule = Schedule.Retrieve(recScheduleId);
+                      Log.Info("removing schedule with id: {0}", schedule.IdSchedule);
+                      RemoteControl.Instance.StopRecordingSchedule(schedule.IdSchedule);
+                      schedule.Delete();
+                    }
+                  }
+                  else
+                  {
+                    _cardHandler.Card.FreeSubChannel(users[i].SubChannel);
+                    context.Remove(users[i]);
                   }
                 }
-                else
-                {
-                  _cardHandler.Card.FreeSubChannel(users[i].SubChannel);
-                  context.Remove(users[i]);
-                }
               }
+              _cardHandler.Card.FreeSubChannel(user.SubChannel);
             }
-            _cardHandler.Card.FreeSubChannel(user.SubChannel);
           }
           else
           {

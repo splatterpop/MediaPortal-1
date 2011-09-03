@@ -338,6 +338,12 @@ namespace TvService
     {
       try
       {
+        if (IsTuneCancelled())
+        {
+          Stop(ref user);
+          return TvResult.TuneCancelled;
+        }
+
         _eventTimeshift.Reset();
         // Is the card enabled ?
         if (_cardHandler.DataBaseCard.Enabled == false)
@@ -428,7 +434,7 @@ namespace TvService
             {              
               Stop(ref user);
               if (IsTuneCancelled())
-              {
+              {                
                 return TvResult.TuneCancelled;
               }
               if (isScrambled)
@@ -492,6 +498,11 @@ namespace TvService
       catch (Exception ex)
       {
         Log.Write(ex);
+      }
+      finally
+      {
+        _eventTimeshift.Set();
+        _cancelled = false;
       }
 
       Stop(ref user);
@@ -561,9 +572,7 @@ namespace TvService
         Log.Write(ex);
       }
       finally
-      {
-        _eventTimeshift.Set();
-        _cancelled = false;
+      {       
       }
       return false;
     }
@@ -630,8 +639,7 @@ if (!WaitForUnScrambledSignal(ref user))
         if (_eventAudio.WaitOne(waitForEvent, true))
         {
           if (IsTuneCancelled())
-          {
-            Log.Write("card: WaitForTimeShiftFile - Tune Cancelled");
+          {            
             return false;
           }
           // start of the video & audio is seen
@@ -657,8 +665,7 @@ if (!WaitForUnScrambledSignal(ref user))
         if (_eventAudio.WaitOne(waitForEvent, true))
         {
           if (IsTuneCancelled())
-          {
-            Log.Write("card: WaitForTimeShiftFile - Tune Cancelled");
+          {            
             return false;
           }
           if (_eventVideo.WaitOne(waitForEvent, true))
@@ -743,7 +750,11 @@ if (!WaitForUnScrambledSignal(ref user))
     }
 
     private bool IsTuneCancelled()
-    {      
+    {
+      if (_cancelled)
+      {
+        Log.Write("card: TimeShifter - Tune is cancelled");
+      }
       return _cancelled;
     }
 
@@ -756,8 +767,8 @@ if (!WaitForUnScrambledSignal(ref user))
           return;
         }
 
-        Log.Debug("TimeShifter: tuning interrupted.");        
-        _cancelled = true;       
+        Log.Debug("TimeShifter: tuning interrupted.");
+        _cancelled = true;
 
         ITvSubChannel subchannel = _cardHandler.Card.GetSubChannel(subchannelId);
         if (subchannel is BaseSubChannel)
@@ -772,6 +783,10 @@ if (!WaitForUnScrambledSignal(ref user))
       catch (Exception ex)
       {
         Log.Write(ex);
+      }
+      finally
+      {
+        _cancelled = false;
       }
     }
   }

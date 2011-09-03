@@ -90,7 +90,7 @@ namespace TvService
     /// List is sorted.
     /// </summary>
     /// <returns>list containg all free cards which can receive the channel</returns>
-    public List<CardDetail> GetFreeCardsForChannel(Dictionary<int, ITvCardHandler> cards, Channel dbChannel,
+    public List<CardDetail> GetFreeCardsForChannel(IDictionary<int, ITvCardHandler> cards, Channel dbChannel,
                                                    ref IUser user, out TvResult result)
     {
       Stopwatch stopwatch = Stopwatch.StartNew();
@@ -104,12 +104,12 @@ namespace TvService
         }
         var cardsAvailable = new List<CardDetail>();
 
-
-        Dictionary<int, TvResult> cardsUnAvailable;
+        IDictionary<int, TvResult> cardsUnAvailable;
         List<CardDetail> cardDetails = GetAvailableCardsForChannel(cards, dbChannel, ref user, out cardsUnAvailable);
         foreach (CardDetail cardDetail in cardDetails)
-        {          
-          bool checkTransponder = CheckTransponder(user, cards[cardDetail.Card.IdCard], cardDetail.TuningDetail);          
+        {
+          ITvCardHandler tvCardHandler = cards[cardDetail.Card.IdCard];
+          bool checkTransponder = CheckTransponder(user, tvCardHandler, cardDetail.TuningDetail);
           if (checkTransponder)
           {
             cardsAvailable.Add(cardDetail);
@@ -148,10 +148,11 @@ namespace TvService
       }
     }
 
-    private static TvResult GetResultNoCards(Dictionary<int, TvResult> cardsUnAvailable) 
+    private static TvResult GetResultNoCards(IDictionary<int, TvResult> cardsUnAvailable) 
     {
       TvResult resultNoCards = TvResult.ChannelNotMappedToAnyCard;
-      Dictionary<int, TvResult>.ValueCollection values = cardsUnAvailable.Values;
+      //Dictionary<int, TvResult>.ValueCollection values = cardsUnAvailable.Values;
+      ICollection<TvResult> values = cardsUnAvailable.Values;
 
       if (values.Any(tvResult => tvResult == TvResult.ChannelIsScrambled)) 
       {
@@ -165,10 +166,10 @@ namespace TvService
     /// List is sorted.
     /// </summary>
     /// <returns>list containg all cards which can receive the channel</returns>
-    public List<CardDetail> GetAvailableCardsForChannel(Dictionary<int, ITvCardHandler> cards, Channel dbChannel,
+    public List<CardDetail> GetAvailableCardsForChannel(IDictionary<int, ITvCardHandler> cards, Channel dbChannel,
                                                         ref IUser user)
     {
-      Dictionary<int, TvResult> cardsUnAvailable;
+      IDictionary<int, TvResult> cardsUnAvailable;
       return GetAvailableCardsForChannel(cards, dbChannel, ref user, out cardsUnAvailable);
     }
 
@@ -177,7 +178,7 @@ namespace TvService
     /// List is sorted.
     /// </summary>
     /// <returns>list containg all cards which can receive the channel</returns>
-    public List<CardDetail> GetAvailableCardsForChannel(Dictionary<int, ITvCardHandler> cards, Channel dbChannel, ref IUser user, out Dictionary<int, TvResult> cardsUnAvailable)
+    public List<CardDetail> GetAvailableCardsForChannel(IDictionary<int, ITvCardHandler> cards, Channel dbChannel, ref IUser user, out IDictionary<int, TvResult> cardsUnAvailable)
     {      
       Stopwatch stopwatch = Stopwatch.StartNew();
       cardsUnAvailable = new Dictionary<int, TvResult>();
@@ -208,8 +209,8 @@ namespace TvService
         {
           Log.Info("Controller:   got {0} tuning details for {1}", tuningDetails.Count, dbChannel.DisplayName);
         }
-        int number = 0;
-        Dictionary<int, ITvCardHandler>.ValueCollection cardHandlers = cards.Values;
+        int number = 0;        
+        ICollection<ITvCardHandler> cardHandlers = cards.Values;
 
         foreach (IChannel tuningDetail in tuningDetails)
         {
@@ -335,7 +336,7 @@ namespace TvService
       return true;
     }
 
-    private static void AddCardUnAvailable(ref Dictionary<int, TvResult> cardsUnAvailable, int cardId, TvResult tvResult)
+    private static void AddCardUnAvailable(ref IDictionary<int, TvResult> cardsUnAvailable, int cardId, TvResult tvResult)
     {
       if (!cardsUnAvailable.ContainsKey(cardId))
       {

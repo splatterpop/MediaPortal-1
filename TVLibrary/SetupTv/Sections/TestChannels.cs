@@ -25,6 +25,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -62,7 +63,6 @@ namespace SetupTv.Sections
     private readonly object _listViewLock = new object();
     private bool _rndPrio;
 
-    //Player _player;
     public TestChannels()
       : this("TestChannels") {}
 
@@ -125,16 +125,17 @@ namespace SetupTv.Sections
     /// </summary>
     /// <typeparam name = "T"></typeparam>
     /// <param name = "list">The list to be chunked.</param>
+    /// <param name="source"></param>
     /// <param name = "chunkSize">The size of each chunk.</param>
     /// <returns>A list of chunks.</returns>
-    public static List<List<T>> SplitIntoChunks<T>(List<T> source, int chunkSize)
+    private static List<List<T>> SplitIntoChunks<T>(List<T> source, int chunkSize)
     {
       if (chunkSize <= 0)
       {
         throw new ArgumentException("chunkSize must be greater than 0.");
       }
 
-      List<List<T>> retVal = new List<List<T>>();
+      var retVal = new List<List<T>>();
       int index = 0;
       while (index < source.Count)
       {
@@ -149,7 +150,7 @@ namespace SetupTv.Sections
 
     private void ChannelTestThread(List<Channel> channelsO)
     {
-      Random rnd = new Random();
+      var rnd = new Random();
 
       while (_running)
       {
@@ -179,8 +180,8 @@ namespace SetupTv.Sections
               channelsForUser = channelsForUser.Randomize();
 
               int priority = GetUserPriority();
-              IUser user = UserFactory.CreateBasicUser("stress-" + Convert.ToString(rnd.Next(1, 500)) + " [" + priority + "]");
-              user.Priority = priority;              
+              string name = "stress-" + Convert.ToString(rnd.Next(1, 500)) + " [" + priority + "]";
+              IUser user = UserFactory.CreateBasicUser(name, priority);              
 
               while (_users.ContainsKey(user.Name))
               {
@@ -272,14 +273,7 @@ namespace SetupTv.Sections
         channelTestThread.IsBackground = true;
         channelTestThread.Priority = ThreadPriority.Lowest;
         channelsO = channels as List<Channel>;
-        foreach (GroupMap map in maps)
-        {
-          Channel ch = map.ReferencedChannel();
-          if (ch.IsTv)
-          {
-            channelsO.Add(ch);
-          }
-        }
+        channelsO.AddRange(maps.Select(map => map.ReferencedChannel()).Where(ch => ch.IsTv));
         _usersShareChannels = chkShareChannels.Checked;
         _tunedelay = txtTuneDelay.Value;
         _concurrentTunes = txtConcurrentTunes.Value;
@@ -837,7 +831,7 @@ namespace SetupTv.Sections
 
     private void mpButton1_Click(object sender, EventArgs e)
     {
-      StringBuilder buffer = new StringBuilder();
+      var buffer = new StringBuilder();
 
       buffer.Append(lblSucceeded.Text + txtSucceded.Text);
       buffer.Append(Environment.NewLine);
@@ -917,7 +911,7 @@ namespace SetupTv.Sections
         return;
       }
 
-      ListView listView = mpListViewLog as ListView;
+      var listView = mpListViewLog as ListView;
 
       if (listView == null)
       {
@@ -935,11 +929,6 @@ namespace SetupTv.Sections
         Sorter = (ListViewSorter)listView.ListViewItemSorter;
       }
 
-
-      if (!(listView.ListViewItemSorter is ListViewSorter))
-      {
-        return;
-      }
 
       if (Sorter.LastSort == e.Column)
       {
@@ -975,6 +964,32 @@ namespace SetupTv.Sections
     private void chkRndPrio_CheckedChanged(object sender, EventArgs e)
     {
       _rndPrio = chkRndPrio.Checked;
+    }
+
+    private void btnCustom_Click(object sender, EventArgs e)
+    {
+      TvResult result;
+      long mSecsElapsed;
+      VirtualCard card;      
+
+      Channel tv3_plus = Channel.Retrieve(9);
+      Channel tv3 = Channel.Retrieve(125);
+
+      IUser low = UserFactory.CreateBasicUser("low", 1);
+      IUser low2 = UserFactory.CreateBasicUser("low2", 1);
+      IUser high = UserFactory.CreateBasicUser("high", 2);
+
+      StartTimeshifting(tv3, low, 0, out mSecsElapsed, out result, out card);      
+
+      Thread.Sleep(3000);
+
+      //StartTimeshifting(tv3_plus, low2, 0, out mSecsElapsed, out result, out card);      
+
+      StartTimeshifting(tv3, high, 0, out mSecsElapsed, out result, out card);
+
+      Thread.Sleep(3000);
+
+      StartTimeshifting(tv3_plus, high, 0, out mSecsElapsed, out result, out card);
     }
   }
 

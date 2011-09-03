@@ -47,11 +47,11 @@ namespace TvService
     private const int PRIORITY_MIN_VALUE = 1;
 
     private const bool IS_ADMIN_SCHEDULER = true;
-    private const bool IS_ADMIN_USER = true;    
+    private const bool IS_ADMIN_USER = false;    
 
-    private static int _priorityEpg;
-    private static int _priorityUser;
-    private static int _priorityScheduler;
+    private static readonly int _priorityEpg;
+    private static readonly int _priorityUser;
+    private static readonly int _priorityScheduler;
     private static readonly IDictionary<string, int> _priorityCustomUsers = new Dictionary<string, int>();    
 
 
@@ -131,19 +131,43 @@ namespace TvService
       return CreateSchedulerUser(scheduleId, -1);
     }
 
-    public static IUser CreateBasicUser(string name, int cardId)
+    public static IUser CreateBasicUser(string name, int cardId, int? defaultPriority)
+    {
+      int priorityCustomUser = GetDefaultPriority(name, defaultPriority);
+      IUser basicUser = new User(name, IS_ADMIN_USER, cardId, priorityCustomUser);
+      return basicUser;  
+    }
+
+    public static IUser CreateBasicUser(string name)
+    {
+      return CreateBasicUser(name, -1, USER_PRIORITY);
+    }
+
+    public static IUser CreateBasicUser(string name, int? defaultPriority)
+    {
+      return CreateBasicUser(name, -1, defaultPriority);
+    }
+
+    public static int? GetDefaultPriority(string name)
+    {
+      return GetDefaultPriority(name, USER_PRIORITY);
+    }
+
+    public static int GetDefaultPriority(string name, int? defaultPriority)
     {
       int priorityCustomUser;
       if (!_priorityCustomUsers.TryGetValue(name, out priorityCustomUser))
       {
-        priorityCustomUser = USER_PRIORITY;
+        if (defaultPriority.HasValue)
+        {
+          priorityCustomUser = defaultPriority.GetValueOrDefault(-1);
+        }
+        else
+        {
+          priorityCustomUser = USER_PRIORITY;
+        }
       }
-      IUser basicUser = new User(name, IS_ADMIN_USER, cardId, priorityCustomUser);
-      return basicUser;  
-    }
-    public static IUser CreateBasicUser(string name)
-    {
-      return CreateBasicUser(name, -1);
+      return priorityCustomUser;
     }
   }
 }

@@ -77,19 +77,15 @@ namespace SetupTv.Sections
 
     public override void LoadSettings()
     {
-      var layer = new TvBusinessLayer();
+      var layer = new TvBusinessLayer();      
+      numEpgGrabber.Value = ValueSanityCheck(
+        Convert.ToDecimal(layer.GetSetting(UserFactory.EPG_TAGNAME, UserFactory.EPG_PRIORITY.ToString()).Value), 1, 100);
 
-      numEpgGrabber.Value = UserFactory.EPG_PRIORITY;
-      numDefaultUser.Value = UserFactory.USER_PRIORITY;
-      numScheduler.Value = UserFactory.SCHEDULER_PRIORITY;
-      //numEpgGrabber.Value = ValueSanityCheck(
-      //  Convert.ToDecimal(layer.GetSetting(UserFactory.EPG_TAGNAME, UserFactory.EPG_PRIORITY.ToString()).Value), 1, 100);
+      numDefaultUser.Value = ValueSanityCheck(
+        Convert.ToDecimal(layer.GetSetting(UserFactory.USER_TAGNAME, UserFactory.USER_PRIORITY.ToString()).Value), 1, 100);
 
-      //numDefaultUser.Value = ValueSanityCheck(
-      //  Convert.ToDecimal(layer.GetSetting(UserFactory.USER_TAGNAME, UserFactory.USER_PRIORITY.ToString()).Value), 1, 100);
-
-      //numScheduler.Value = ValueSanityCheck(
-      //  Convert.ToDecimal(layer.GetSetting(UserFactory.SCHEDULER_TAGNAME, UserFactory.SCHEDULER_PRIORITY.ToString()).Value), 1, 100);
+      numScheduler.Value = ValueSanityCheck(
+        Convert.ToDecimal(layer.GetSetting(UserFactory.SCHEDULER_TAGNAME, UserFactory.SCHEDULER_PRIORITY.ToString()).Value), 1, 100);
 
       Setting setting = layer.GetSetting(UserFactory.CUSTOM_TAGNAME, "");
       gridUserPriorities.Rows.Clear();

@@ -21,6 +21,7 @@
 #region usings 
 
 using System.Collections.Generic;
+using System.Linq;
 using TvControl;
 using TvDatabase;
 using TvLibrary.Interfaces;
@@ -34,7 +35,7 @@ namespace TvService
   {
     private bool _logEnabled = true;
 
-    public bool LogEnabled
+    protected bool LogEnabled
     {
       get { return _logEnabled; }
       set { _logEnabled = value; }
@@ -52,7 +53,7 @@ namespace TvService
 
     #region protected members            
 
-    protected bool IsCamAbleToDecryptChannel(IUser user, ITvCardHandler tvcard, IChannel tuningDetail, int decryptLimit)
+    private bool IsCamAbleToDecryptChannel(IUser user, ITvCardHandler tvcard, IChannel tuningDetail, int decryptLimit)
     {
       if (!tuningDetail.FreeToAir)
       {
@@ -88,16 +89,7 @@ namespace TvService
     protected virtual int GetNumberOfUsersOnCurrentChannel(ITvCardHandler tvcard, IUser user) 
     {
       int currentChannelId = tvcard.CurrentDbChannel(ref user);
-
-      int numberOfUsersOnCurrentChannel = 0;
-      foreach (IUser aUser in tvcard.Users.GetUsers())
-      {                
-        if (aUser.IdChannel == currentChannelId)
-        {
-          ++numberOfUsersOnCurrentChannel;
-        }
-      }
-      return numberOfUsersOnCurrentChannel;
+      return tvcard.Users.GetUsers().Count(aUser => aUser.IdChannel == currentChannelId);
     }
 
     protected virtual bool IsFreeToAir(ITvCardHandler tvcard, ref IUser user)
@@ -139,7 +131,7 @@ namespace TvService
       return isChannelMappedToCard;
     }
 
-    protected bool IsValidTuningDetails(IList<IChannel> tuningDetails)
+    protected static bool IsValidTuningDetails(IList<IChannel> tuningDetails)
     {
       bool isValid = (tuningDetails != null && tuningDetails.Count > 0);
       return isValid;
@@ -237,9 +229,35 @@ namespace TvService
       return checkTransponder;
     }
 
-    protected virtual bool IsOwnerOfCard(ITvCardHandler tvcard, IUser user)
+    private static bool HasEqualOrHigherPriority(ITvCardHandler tvcard, IUser user)
     {
-      return tvcard.Users.IsOwner(user);
+      return tvcard.Users.HasEqualOrHigherPriority(user);
+    }
+
+    private static bool HasHighestPriority(ITvCardHandler tvcard, IUser user)
+    {
+      return tvcard.Users.HasHighestPriority(user);
+    }
+
+    protected virtual bool IsOwnerOfCard(ITvCardHandler tvcard, IUser user)
+    {      
+      bool hasHighestPriority = HasHighestPriority(tvcard, user);
+      bool isOwnerOfCard = false;
+
+      if (hasHighestPriority)
+      {
+        isOwnerOfCard = true;
+      }
+      else
+      {
+        bool hasEqualOrHigherPriority = HasEqualOrHigherPriority(tvcard, user);
+        if (hasEqualOrHigherPriority)
+        {
+          isOwnerOfCard = tvcard.Users.IsOwner(user);
+        }
+      }
+
+      return isOwnerOfCard;
     }
 
     protected virtual bool IsSameTransponder(ITvCardHandler tvcard, IChannel tuningDetail)

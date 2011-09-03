@@ -22,6 +22,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Timers;
 using TvControl;
@@ -327,6 +328,40 @@ namespace TvService
           existingUser.SubChannel = nextSubchannel + 1;
         }
       }
+    }
+
+    public bool HasUserEqualOrHigherPriority(IUser user)
+    {      
+      bool hasEqualOrHigherPriority;
+      ICollection<IUser> otherUsers = _users.Where(t => !t.Name.Equals(user.Name)).ToList();
+      if (otherUsers.Count == 0)
+      {
+        hasEqualOrHigherPriority = true;
+      }
+      else
+      {
+        int? maxPriority = otherUsers.Max(t => t.Priority);
+        hasEqualOrHigherPriority = (user.Priority >= maxPriority);
+      }
+
+      return hasEqualOrHigherPriority;
+    }
+
+    public bool HasUserHighestPriority(IUser user)
+    {
+      bool hasHighestPriority;
+      ICollection<IUser> otherUsers = _users.Where(t => !t.Name.Equals(user.Name)).ToList();
+      if (otherUsers.Count == 0)
+      {
+        hasHighestPriority = true;        
+      }
+      else
+      {
+        int? maxPriority = otherUsers.Max(t => t.Priority);
+        hasHighestPriority = (user.Priority > maxPriority);
+      }
+
+      return hasHighestPriority;
     }
 
     /// <summary>

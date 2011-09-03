@@ -19,6 +19,8 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using TvLibrary.Interfaces;
 using TvLibrary.Log;
@@ -233,10 +235,32 @@ namespace TvService
           return null;
         }
       }
-      ITvCardContext context = _cardHandler.Card.Context as ITvCardContext;
+      var context = _cardHandler.Card.Context as ITvCardContext;
       if (context == null)
         return null;
       return context.Users;
+    }
+
+    public bool HasEqualOrHigherPriority(IUser user)
+    {
+      bool hasEqualOrHigherPriority = false;
+      var context = _cardHandler.Card.Context as ITvCardContext;
+      if (context != null)
+      {
+        hasEqualOrHigherPriority = context.HasUserEqualOrHigherPriority(user);
+      }
+      return hasEqualOrHigherPriority;
+    }
+
+    public bool HasHighestPriority(IUser user)
+    {
+      bool hasHighestPriority = false;
+      var context = _cardHandler.Card.Context as ITvCardContext;
+      if (context != null)
+      {
+        hasHighestPriority = context.HasUserHighestPriority(user);
+      }
+      return hasHighestPriority;         
     }
   }
 }

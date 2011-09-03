@@ -43,14 +43,14 @@ namespace TvControl
     [NonSerialized]
     private object _history;
     private Dictionary<int, ChannelState> _channelStates; //used primarily for miniepg.
-    private int _priority = 0;
+    private int? _priority;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="User"/> class.
     /// </summary>
     public User()
     {
-      _priority = 0;
+      _priority = null;
       _hostName = Dns.GetHostName();
       _isAdmin = false;
       _cardId = -1;
@@ -69,7 +69,7 @@ namespace TvControl
     /// <param name="isAdmin">if set to <c>true</c> [is admin].</param>
     public User(string name, bool isAdmin)
     {
-      _priority = 0;
+      _priority = null;
       _hostName = name;
       _isAdmin = isAdmin;
       _cardId = -1;
@@ -85,7 +85,7 @@ namespace TvControl
     /// <param name="cardId">The card id.</param>
     public User(string name, bool isAdmin, int cardId)
     {
-      _priority = 0;
+      _priority = null;
       _hostName = name;
       _isAdmin = isAdmin;
       _cardId = cardId;
@@ -114,7 +114,7 @@ namespace TvControl
     /// Gets an integer defining the user's card lock priority (higher number=higher priority)
     /// </summary>    
     /// <returns>user priority</returns>
-    public int Priority
+    public int? Priority
     {
       get { return _priority; }
       set { _priority = value; }

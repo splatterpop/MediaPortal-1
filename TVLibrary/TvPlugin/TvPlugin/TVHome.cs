@@ -3233,8 +3233,10 @@ namespace TvPlugin
       }
       Log.Info("TVHome.ViewChannelAndCheck(): View channel={0}", channel.DisplayName);
 
-      //if a channel is untunable, then there is no reason to carry on or even stop playback.
-      ChannelState CurrentChanState = TvServer.GetChannelState(channel.IdChannel, Card.User);
+      //if a channel is untunable, then there is no reason to carry on or even stop playback.   
+      var userCopy = Card.User.Clone() as IUser;
+      userCopy.Name = Dns.GetHostName();
+      ChannelState CurrentChanState = TvServer.GetChannelState(channel.IdChannel, userCopy);
       if (CurrentChanState == ChannelState.nottunable)
       {
         ChannelTuneFailedNotifyUser(TvResult.AllCardsBusy, false, channel);
