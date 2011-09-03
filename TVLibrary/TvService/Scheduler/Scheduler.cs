@@ -936,7 +936,7 @@ namespace TvService
 
 
     
-    private bool StartRecordOnCard(
+    private void StartRecordOnCard(
       RecordingDetail recDetail, 
 		  ref IUser user,
       out ICollection<CardDetail> cards,
@@ -1031,7 +1031,6 @@ namespace TvService
           CardReservationHelper.CancelAllCardReservations(tickets, _tvController.CardCollection);
         }
       }
-      return recSucceded;
     }
 
     private static CardDetail GetCardDetailByCardId(IEnumerable<CardDetail> cards, int cardDetailId)
@@ -1040,13 +1039,12 @@ namespace TvService
     }
 
 
-    private bool StartRecordOnFreeCard(RecordingDetail recDetail, ref IUser user, out ICollection<CardDetail> freeCards)
+    private void StartRecordOnFreeCard(RecordingDetail recDetail, ref IUser user, out ICollection<CardDetail> freeCards)
     {
       var cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, _tvController);
       TvResult tvResult;
       List<CardDetail> freeCardsForReservation = cardAllocationStatic.GetFreeCardsForChannel(_tvController.CardCollection, recDetail.Channel, ref user, out tvResult);
-      //freeCardsForReservation.RemoveAll(t => t.NumberOfOtherUsers > 0 && !t.SameTransponder);
-      return StartRecordOnCard(recDetail, ref user, out freeCards, freeCardsForReservation, new List<CardDetail>(), new CardReservationRecFree(_tvController));
+      StartRecordOnCard(recDetail, ref user, out freeCards, freeCardsForReservation, new List<CardDetail>(), new CardReservationRecFree(_tvController));
     }
     
     private static void UpdateCardsIterated(ICollection<CardDetail> freeCardsIterated, IEnumerable<CardDetail> freeCards)

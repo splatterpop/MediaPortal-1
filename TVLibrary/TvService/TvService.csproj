@@ -89,7 +89,6 @@
       <Link>SolutionInfo.cs</Link>
     </Compile>
     <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocation.cs" />
-    <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocationFreeRecTicket.cs" />
     <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocationTicket.cs" />
     <Compile Include="CardManagement\CardAllocation\CardAllocationBase.cs" />
     <Compile Include="CardManagement\CardAllocation\ChannelStates.cs" />
