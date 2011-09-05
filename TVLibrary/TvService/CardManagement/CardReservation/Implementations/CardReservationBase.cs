@@ -138,6 +138,7 @@ namespace TvService
       finally
       {
         CardReservationHelper.RemoveTuneTicket(tvcard, ticket, ticketFound);
+        tvcard.Tuner.CleanUpPendingTune(ticket.PendingSubchannel);
       }
       return tvResult;
     }
