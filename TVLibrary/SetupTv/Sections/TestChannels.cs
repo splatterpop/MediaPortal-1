@@ -975,21 +975,29 @@ namespace SetupTv.Sections
       Channel tv3_plus = Channel.Retrieve(9);
       Channel tv3 = Channel.Retrieve(125);
 
+      Channel nosignal = Channel.Retrieve(5651);
+
       IUser low = UserFactory.CreateBasicUser("low", 1);
       IUser low2 = UserFactory.CreateBasicUser("low2", 1);
-      IUser high = UserFactory.CreateBasicUser("high", 2);
+      IUser high = UserFactory.CreateBasicUser("high", 5);
 
-      StartTimeshifting(tv3, low, 0, out mSecsElapsed, out result, out card);      
+      //StartTimeshifting(tv3, low, 0, out mSecsElapsed, out result, out card);      
 
-      Thread.Sleep(3000);
+
+      //ThreadPool.QueueUserWorkItem(delegate { StartTimeshifting(nosignal, low, 0, out mSecsElapsed, out result, out card); });            
+
+      //Thread.Sleep(1000);
+
+      ThreadPool.QueueUserWorkItem(delegate { StartTimeshifting(nosignal, low, 0, out mSecsElapsed, out result, out card); });
+
 
       //StartTimeshifting(tv3_plus, low2, 0, out mSecsElapsed, out result, out card);      
 
-      StartTimeshifting(tv3, high, 0, out mSecsElapsed, out result, out card);
+      //StartTimeshifting(tv3, high, 0, out mSecsElapsed, out result, out card);
 
-      Thread.Sleep(3000);
+      //Thread.Sleep(3000);
 
-      StartTimeshifting(tv3_plus, high, 0, out mSecsElapsed, out result, out card);
+      //StartTimeshifting(tv3_plus, high, 0, out mSecsElapsed, out result, out card);
     }
   }
 

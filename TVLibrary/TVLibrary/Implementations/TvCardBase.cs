@@ -615,11 +615,10 @@ namespace TvLibrary.Implementations
 
     ///<summary>
     /// Checks if the tuner is locked in and a sginal is present
-    ///</summary>
-    ///<returns>true, when the tuner is locked and a signal is present</returns>
-    public virtual bool LockedInOnSignal()
+    ///</summary>    
+    public virtual void LockInOnSignal()
     {
-      return false;
+      
     }
 
     #endregion

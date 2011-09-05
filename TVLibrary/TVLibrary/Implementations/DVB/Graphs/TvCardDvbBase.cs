@@ -265,6 +265,8 @@ namespace TvLibrary.Implementations.DVB
     /// </summary>
     protected IChannel _previousChannel;
 
+    protected bool _cancelTune;
+
     #endregion
 
     #region ctor
@@ -318,7 +320,7 @@ namespace TvLibrary.Implementations.DVB
     }
 
     private ITvSubChannel DoTune(int subChannelId, IChannel channel, bool ignorePMT)
-    {
+    {      
       bool performTune = (_previousChannel == null || _previousChannel.IsDifferentTransponder(channel));
       ITvSubChannel ch = SubmitTuneRequest(subChannelId, channel, _tuneRequest, performTune);
       _previousChannel = channel;
@@ -353,6 +355,10 @@ namespace TvLibrary.Implementations.DVB
           FreeSubChannel(ch.SubChannelId);
         }
         throw;
+      }
+      finally
+      {
+        _cancelTune = false;
       }
     }
 
@@ -429,7 +435,7 @@ namespace TvLibrary.Implementations.DVB
     /// <param name="tuneRequest">tune requests</param>
     /// <param name="performTune">Indicates if a tune is required</param>
     /// <returns></returns>
-    protected ITvSubChannel SubmitTuneRequest(int subChannelId, IChannel channel, ITuneRequest tuneRequest,
+    private ITvSubChannel SubmitTuneRequest(int subChannelId, IChannel channel, ITuneRequest tuneRequest,
                                               bool performTune)
     {
       Log.Log.Info("dvb:Submiting tunerequest Channel:{0} subChannel:{1} ", channel.Name, subChannelId);
@@ -479,6 +485,10 @@ namespace TvLibrary.Implementations.DVB
             else
             {
               Log.Log.WriteFile("dvb:Submit tunerequest calling put_TuneRequest");
+              if (_cancelTune)
+              {
+                throw new TvExceptionTuneCancelled();
+              }
               int hr = ((ITuner)_filterNetworkProvider).put_TuneRequest(tuneRequest);
               Log.Log.WriteFile("dvb:Submit tunerequest done calling put_TuneRequest");
 
@@ -780,13 +790,8 @@ namespace TvLibrary.Implementations.DVB
 
     ///<summary>
     /// Checks if the tuner is locked in and a sginal is present
-    ///</summary>
-    ///<returns>true, when the tuner is locked and a signal is present</returns>
-    ///<summary>
-    /// Checks if the tuner is locked in and a sginal is present
-    ///</summary>
-    ///<returns>true, when the tuner is locked and a signal is present</returns>
-    public override bool LockedInOnSignal()
+    ///</summary>    
+    public override void LockInOnSignal()
     {
       //UpdateSignalQuality(true);
       bool isLocked = false;
@@ -794,12 +799,15 @@ namespace TvLibrary.Implementations.DVB
       TimeSpan ts = timeStart - timeStart;
       while (!isLocked && ts.TotalSeconds < _parameters.TimeOutTune)
       {
-        for (int i = 0; i < _tunerStatistics.Count; i++)
+        foreach (IBDA_SignalStatistics stat in _tunerStatistics) 
         {
-          IBDA_SignalStatistics stat = _tunerStatistics[i];
-
           try
           {
+            if (_cancelTune)
+            {
+              Log.Log.WriteFile("dvb:  LockInOnSignal tune cancelled");
+              throw new TvExceptionTuneCancelled();
+            }
             stat.get_SignalLocked(out isLocked);
             if (isLocked)
             {
@@ -814,20 +822,17 @@ namespace TvLibrary.Implementations.DVB
         if (!isLocked)
         {
           ts = DateTime.Now - timeStart;
-          Log.Log.WriteFile("dvb:  LockedInOnSignal waiting 20ms");
+          Log.Log.WriteFile("dvb:  LockInOnSignal waiting 20ms");
           System.Threading.Thread.Sleep(20);
         }
-      }
+      }      
 
       if (!isLocked)
       {
-        Log.Log.WriteFile("dvb:  LockedInOnSignal could not lock onto channel - no signal or bad signal");
+        Log.Log.WriteFile("dvb:  LockInOnSignal could not lock onto channel - no signal or bad signal");        
+        throw new TvExceptionNoSignal("Unable to tune to channel - no signal");
       }
-      else
-      {
-        Log.Log.WriteFile("dvb:  LockedInOnSignal ok");
-      }
-      return isLocked;
+      Log.Log.WriteFile("dvb:  LockInOnSignal ok");
     }
 
     protected virtual bool ShouldWaitForSignal()
@@ -842,6 +847,7 @@ namespace TvLibrary.Implementations.DVB
     /// <param name="subChannel"></param>
     public void CancelTune(int subChannel)
     {
+      _cancelTune = true;
       if (_mapSubChannels.ContainsKey(subChannel))
       {
         var dvbChannel = _mapSubChannels[subChannel] as TvDvbChannel;
@@ -865,10 +871,7 @@ namespace TvLibrary.Implementations.DVB
       {
         if (graphRunning)
         {
-          if (!LockedInOnSignal())
-          {
-            throw new TvExceptionNoSignal("Unable to tune to channel - no signal");
-          }
+          LockInOnSignal();          
         }
         _mapSubChannels[subChannel].AfterTuneEvent -= new BaseSubChannel.OnAfterTuneDelegate(OnAfterTuneEvent);
         _mapSubChannels[subChannel].AfterTuneEvent += new BaseSubChannel.OnAfterTuneDelegate(OnAfterTuneEvent);
@@ -896,11 +899,7 @@ namespace TvLibrary.Implementations.DVB
       _epgGrabbing = false;
       if (_mapSubChannels.ContainsKey(subChannel))
       {
-        if (!LockedInOnSignal())
-        {
-          //Log.Log.WriteFile("Unable to tune to channel - no signal");
-          throw new TvExceptionNoSignal("Unable to tune to channel - no signal");
-        }
+        LockInOnSignal();        
         _mapSubChannels[subChannel].AfterTuneEvent -= new BaseSubChannel.OnAfterTuneDelegate(OnAfterTuneEvent);
         _mapSubChannels[subChannel].AfterTuneEvent += new BaseSubChannel.OnAfterTuneDelegate(OnAfterTuneEvent);
         _mapSubChannels[subChannel].OnGraphStarted();
