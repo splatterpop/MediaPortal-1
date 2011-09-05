@@ -223,6 +223,10 @@ namespace TvLibrary.Implementations.DVB
         ITvSubChannel ch = base.Tune(subChannelId, channel);
         return ch;
       }
+      catch (TvExceptionTuneCancelled)
+      {
+        throw;
+      }
       catch (TvExceptionNoSignal)
       {
         throw;

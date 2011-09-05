@@ -256,6 +256,10 @@ namespace TvLibrary.Implementations.DVB
         AfterTune(channel, subChannelId);
         return ch;
       }
+      catch (TvExceptionTuneCancelled)
+      {
+        throw;
+      }
       catch (TvExceptionNoSignal)
       {
         throw;
@@ -263,11 +267,7 @@ namespace TvLibrary.Implementations.DVB
       catch (TvExceptionNoPMT)
       {
         throw;
-      }
-      catch (TvExceptionTuneCancelled)
-      {
-        throw;
-      }
+      }      
       catch (Exception ex)
       {
         Log.Log.Write(ex);
