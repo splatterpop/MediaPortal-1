@@ -20,18 +20,23 @@
 
 using System;
 using TvControl;
+using TvLibrary.Interfaces;
 using TvLibrary.Log;
 
 namespace TvService
 {
-  public abstract class CardReservationRecBase : CardReservationBase
+  public class CardReservationRec : CardReservationBase
   {    
     private CardDetail _cardInfo;
     private RecordingDetail _recDetail;    
 
-    protected CardReservationRecBase(TVController tvController) : base(tvController) { }
+    public CardReservationRec(TVController tvController) : base(tvController) { }
 
-  
+
+    protected override bool IsTunedToTransponder(ITvCardHandler tvcard, IChannel tuningDetail)
+    {
+      return tvcard.Tuner.IsTunedToTransponder(tuningDetail);
+    }
 
     public CardDetail CardInfo
     {
@@ -62,7 +67,7 @@ namespace TvService
         _recDetail.CardInfo = _cardInfo;
         Log.Write("Scheduler : record to {0}", _recDetail.FileName);
         string fileName = _recDetail.FileName;
-        startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartRecording(ref user, ref fileName, false, 0));
+        startRecordingOnDisc = (TvResult.Succeeded == _tvController.StartRecording(ref user, ref fileName));
 
         if (startRecordingOnDisc)
         {

@@ -94,6 +94,7 @@
     <Compile Include="CardManagement\CardAllocation\ChannelStates.cs" />
     <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocationStatic.cs" />
     <Compile Include="CardManagement\CardHandler\AudioStreams.cs" />
+    <Compile Include="CardManagement\CardHandler\TimeShifterBase.cs" />
     <Compile Include="CardManagement\CardReservation\Ticket\CardReservationTicketBase.cs" />
     <Compile Include="CardManagement\CardReservation\Ticket\CardStopReservationTicket.cs" />
     <Compile Include="CardManagement\CardReservation\Implementations\CardReservationBase.cs" />
@@ -109,9 +110,7 @@
     <Compile Include="CardManagement\CardHandler\TimeShifter.cs" />
     <Compile Include="CardManagement\CardHandler\UserManagement.cs" />
     <Compile Include="CardManagement\CardReservation\Implementations\CardReservationTimeshifting.cs" />
-    <Compile Include="CardManagement\CardReservation\Implementations\CardReservationRecFree.cs" />
-    <Compile Include="CardManagement\CardReservation\Implementations\CardReservationRecAvail.cs" />
-    <Compile Include="CardManagement\CardReservation\Implementations\CardReservationRecBase.cs" />
+    <Compile Include="CardManagement\CardReservation\Implementations\CardReservationRec.cs" />
     <Compile Include="ChannelLinkage\ChannelLinkageGrabber.cs" />
     <Compile Include="DiskManagement\RecordingFileHandler.cs" />
     <Compile Include="DiskManagement\DiskManagement.cs" />

@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Runtime.CompilerServices;
 using TvLibrary.Interfaces;
@@ -33,33 +34,39 @@ namespace TvService
   public class ChannelStates : CardAllocationBase
   {
     #region private members   
+    
+    private readonly object _lock = new object();
+
 
     public ChannelStates(TvBusinessLayer businessLayer, IController controller) : base(businessLayer, controller)
     {
       LogEnabled = false;
     }    
 
-    private static void UpdateChannelStateUsers(IEnumerable<IUser> allUsers, ChannelState chState, int channelId)
+    private void UpdateChannelStateUsers(IEnumerable<IUser> allUsers, ChannelState chState, int channelId)
     {
-      foreach (IUser t in allUsers) 
+      //lock (_lock)
       {
-        IUser u = null;
-        try
+        foreach (IUser t in allUsers)
         {
-          u = t;
-        }
-        catch (NullReferenceException) {}
+          IUser u = null;
+          try
+          {
+            u = t;
+          }
+          catch (NullReferenceException) {}
 
-        if (u == null)
-          continue;
-        if (u.IsAdmin)
-          continue; //scheduler users do not need to have their channelstates set.
+          if (u == null)
+            continue;
+          if (u.IsAdmin)
+            continue; //scheduler users do not need to have their channelstates set.
 
-        try
-        {
-          UpdateChannelStateUser(u, chState, channelId);
+          try
+          {
+            UpdateChannelStateUser(u, chState, channelId);
+          }
+          catch (NullReferenceException) {}
         }
-        catch (NullReferenceException) {}
       }
     }
 
@@ -103,13 +110,10 @@ namespace TvService
           IUser[] usersAvail = cardHandler.Users.GetUsers();
           if (usersAvail != null)
           {            
-            foreach (IUser tmpUser in usersAvail) 
+            foreach (IUser tmpUser in usersAvail.Where(tmpUser => !tmpUser.IsAdmin)) 
             {
-              if (!tmpUser.IsAdmin)
-              {
-                tmpUser.ChannelStates = new Dictionary<int, ChannelState>();
-                allUsers.Add(tmpUser);
-              }
+              tmpUser.ChannelStates = new Dictionary<int, ChannelState>();
+              allUsers.Add(tmpUser);
             }
           }
         }
@@ -121,112 +125,114 @@ namespace TvService
 
       return allUsers;
     }
-
-    [MethodImpl(MethodImplOptions.Synchronized)]
+    
     private void DoSetChannelStates(Dictionary<int, ITvCardHandler> cards, ICollection<Channel> channels, IList<IUser> allUsers, TVController tvController)
     {
-      Stopwatch stopwatch = Stopwatch.StartNew();
-      try
+      lock (_lock)
       {
-        //construct list of all cards we can use to tune to the new channel
-        Log.Debug("Controller: DoSetChannelStates for {0} channels", channels.Count);
-
-        if (allUsers == null || allUsers.Count == 0)
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        try
         {
-          return; // no users, no point in continuing.
-        }        
+          //construct list of all cards we can use to tune to the new channel
+          Log.Debug("Controller: DoSetChannelStates for {0} channels", channels.Count);
 
-        IDictionary<int, ChannelState> TSandRecStates = null;
-        ICollection<ITvCardHandler> cardHandlers = cards.Values;
-
-        IDictionary<int, IList<int>> channelMapping = GetChannelMapping();
-        IDictionary<int, IList<IChannel>> tuningChannelMapping = GetTuningChannels();
-        foreach (Channel ch in channels)
-        {
-          if (!ch.VisibleInGuide)
+          if (allUsers == null || allUsers.Count == 0)
           {
-            UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
-            continue;
+            return; // no users, no point in continuing.
           }
 
-          //get the tuning details for the channel
-          IList<IChannel> tuningDetails;
-          tuningChannelMapping.TryGetValue(ch.IdChannel, out tuningDetails);
-          bool isValidTuningDetails = IsValidTuningDetails(tuningDetails);
-          if (!isValidTuningDetails)
+          IDictionary<int, ChannelState> TSandRecStates = null;
+          ICollection<ITvCardHandler> cardHandlers = cards.Values;
+
+          IDictionary<int, IList<int>> channelMapping = GetChannelMapping();
+          IDictionary<int, IList<IChannel>> tuningChannelMapping = GetTuningChannels();
+          foreach (Channel ch in channels)
           {
-            UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
-            continue;
+            if (!ch.VisibleInGuide)
+            {
+              UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
+              continue;
+            }
+
+            //get the tuning details for the channel
+            IList<IChannel> tuningDetails;
+            tuningChannelMapping.TryGetValue(ch.IdChannel, out tuningDetails);
+            bool isValidTuningDetails = IsValidTuningDetails(tuningDetails);
+            if (!isValidTuningDetails)
+            {
+              UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
+              continue;
+            }
+
+            foreach (IChannel tuningDetail in tuningDetails)
+            {
+              foreach (ITvCardHandler cardHandler in cardHandlers)
+              {
+                //check if card is enabled
+                if (!cardHandler.DataBaseCard.Enabled)
+                {
+                  //not enabled, so skip the card
+                  //Log.Info("Controller:    card:{0} type:{1} is disabled", cardId, tvcard.Type);
+                  UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
+                  continue;
+                }
+
+                if (!cardHandler.Tuner.CanTune(tuningDetail))
+                {
+                  //card cannot tune to this channel, so skip it
+                  //Log.Info("Controller:    card:{0} type:{1} cannot tune to channel", cardId, tvcard.Type);
+                  UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
+                  continue;
+                }
+
+                //check if channel is mapped to this card and that the mapping is not for "Epg Only"
+                bool isChannelMappedToCard = IsChannelMappedToCard(ch, cardHandler.DataBaseCard, channelMapping);
+                if (!isChannelMappedToCard)
+                {
+                  UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
+                  continue;
+                }
+
+                if (!tuningDetail.FreeToAir && !cardHandler.DataBaseCard.CAM)
+                {
+                  UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
+                  continue;
+                }
+
+                //ok card could be used to tune to this channel
+                //now we check if its free...                                            
+                CheckTransponderAllUsers(ch, allUsers, cardHandler, tuningDetail);
+              } //while card end
+            } //foreach tuningdetail end              
+
+            //only query once
+            if (TSandRecStates == null)
+            {
+              Stopwatch stopwatchTsRec = Stopwatch.StartNew();
+              TSandRecStates = tvController.GetAllTimeshiftingAndRecordingChannels();
+              stopwatchTsRec.Stop();
+              Log.Info("ChannelStates.GetAllTimeshiftingAndRecordingChannels took {0} msec",
+                       stopwatchTsRec.ElapsedMilliseconds);
+            }
+            UpdateRecOrTSChannelStateForUsers(ch, allUsers, TSandRecStates);
           }
 
-          foreach (IChannel tuningDetail in tuningDetails)
-          {
-            foreach (ITvCardHandler cardHandler in cardHandlers)
-            {                            
-              //check if card is enabled
-              if (!cardHandler.DataBaseCard.Enabled)
-              {
-                //not enabled, so skip the card
-                //Log.Info("Controller:    card:{0} type:{1} is disabled", cardId, tvcard.Type);
-                UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
-                continue;
-              }
-
-              if (!cardHandler.Tuner.CanTune(tuningDetail))
-              {
-                //card cannot tune to this channel, so skip it
-                //Log.Info("Controller:    card:{0} type:{1} cannot tune to channel", cardId, tvcard.Type);
-                UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
-                continue;
-              }
-
-              //check if channel is mapped to this card and that the mapping is not for "Epg Only"
-              bool isChannelMappedToCard = IsChannelMappedToCard(ch, cardHandler.DataBaseCard, channelMapping);
-              if (!isChannelMappedToCard)
-              {
-                UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
-                continue;
-              }
-
-              if (!tuningDetail.FreeToAir && !cardHandler.DataBaseCard.CAM)
-              {
-                UpdateChannelStateUsers(allUsers, ChannelState.nottunable, ch.IdChannel);
-                continue;
-              }
-
-              //ok card could be used to tune to this channel
-              //now we check if its free...                                            
-              CheckTransponderAllUsers(ch, allUsers, cardHandler, tuningDetail);
-            } //while card end
-          } //foreach tuningdetail end              
-
-          //only query once
-          if (TSandRecStates == null)
-          {
-            Stopwatch stopwatchTsRec = Stopwatch.StartNew();
-            TSandRecStates = tvController.GetAllTimeshiftingAndRecordingChannels();
-            stopwatchTsRec.Stop();
-            Log.Info("ChannelStates.GetAllTimeshiftingAndRecordingChannels took {0} msec",
-                     stopwatchTsRec.ElapsedMilliseconds);
-          }
-          UpdateRecOrTSChannelStateForUsers(ch, allUsers, TSandRecStates);
+          RemoveAllTunableChannelStates(allUsers);
         }
-
-        RemoveAllTunableChannelStates(allUsers);
-      }
-      catch (InvalidOperationException tex)
-      {
-        Log.Error("ChannelState: Possible race condition occured setting channel states - {0}", tex.StackTrace);
-      }
-      catch (Exception ex)
-      {
-        Log.Error("ChannelState: An unknown error occured while setting channel states - {0}\n{1}", ex.Message,
-                  ex.StackTrace);
-      }
-      finally
-      {
-        stopwatch.Stop();
-        Log.Info("ChannelStates.DoSetChannelStates took {0} msec", stopwatch.ElapsedMilliseconds);
+        catch (InvalidOperationException tex)
+        {
+          Log.Error("ChannelState: Possible race condition occured setting channel states - {0}", tex.StackTrace);
+        }
+        catch (Exception ex)
+        {
+          Log.Error("ChannelState: An unknown error occured while setting channel states - {0}\n{1}", ex.Message,
+                    ex.StackTrace);
+        }
+        finally
+        {
+          stopwatch.Stop();
+          Log.Info("ChannelStates.DoSetChannelStates took {0} msec", stopwatch.ElapsedMilliseconds);
+        }
       }
     }
 
@@ -283,28 +289,31 @@ namespace TvService
       return cards != null && cards.Contains(card.IdCard);
     }
 
-    private static void RemoveAllTunableChannelStates(IEnumerable<IUser> allUsers)
+    private void RemoveAllTunableChannelStates(IEnumerable<IUser> allUsers)
     {
-      foreach (IUser user in allUsers)
+      //lock (_lock)
       {
-        List<int> keysToDelete = new List<int>();
-
-        foreach (KeyValuePair<int, ChannelState> kvp in user.ChannelStates)
+        foreach (IUser user in allUsers)
         {
-          if (kvp.Value == ChannelState.tunable)
+          var keysToDelete = new List<int>();
+
+          foreach (KeyValuePair<int, ChannelState> kvp in user.ChannelStates)
           {
-            keysToDelete.Add(kvp.Key);
+            if (kvp.Value == ChannelState.tunable)
+            {
+              keysToDelete.Add(kvp.Key);
+            }
           }
-        }
 
-        foreach (int key in keysToDelete)
-        {
-          user.ChannelStates.Remove(key);
+          foreach (int key in keysToDelete)
+          {
+            user.ChannelStates.Remove(key);
+          }
         }
       }
     }
 
-    private static void UpdateRecOrTSChannelStateForUsers(Channel ch, IEnumerable<IUser> allUsers,
+    private void UpdateRecOrTSChannelStateForUsers(Channel ch, IEnumerable<IUser> allUsers,
                                                           IDictionary<int, ChannelState> TSandRecStates)
     {
       ChannelState cs;
@@ -323,6 +332,7 @@ namespace TvService
     private void CheckTransponderAllUsers(Channel ch, IEnumerable<IUser> allUsers, ITvCardHandler tvcard,
                                                  IChannel tuningDetail)
     {
+      //IEnumerable<IUser> allUsersCopy = GetUsersCopy(allUsers);
       foreach (IUser user in allUsers) 
       {
         //ignore admin users, like scheduler
@@ -342,6 +352,16 @@ namespace TvService
         }
       }
     }
+
+   /* private IEnumerable<IUser> GetUsersCopy(IEnumerable<IUser> allUsers)
+    {
+      List<IUser> allUsersCopy;
+      lock (_lock)
+      {
+        allUsersCopy = allUsers.ToList();
+      }
+      return allUsersCopy;
+    }*/
 
     #endregion
 

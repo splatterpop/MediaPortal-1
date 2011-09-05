@@ -3235,13 +3235,16 @@ namespace TvPlugin
 
       //if a channel is untunable, then there is no reason to carry on or even stop playback.   
       var userCopy = Card.User.Clone() as IUser;
-      userCopy.Name = Dns.GetHostName();
-      ChannelState CurrentChanState = TvServer.GetChannelState(channel.IdChannel, userCopy);
-      if (CurrentChanState == ChannelState.nottunable)
+      if (userCopy != null) 
       {
-        ChannelTuneFailedNotifyUser(TvResult.AllCardsBusy, false, channel);
-        return false;
-      }
+        userCopy.Name = Dns.GetHostName();
+        ChannelState CurrentChanState = TvServer.GetChannelState(channel.IdChannel, userCopy);
+        if (CurrentChanState == ChannelState.nottunable)
+        {
+          ChannelTuneFailedNotifyUser(TvResult.AllCardsBusy, false, channel);
+          return false;
+        }
+      }      
 
       //BAV: fixing mantis bug 1263: TV starts with no video if Radio is previously ON & channel selected from TV guide
       if ((!channel.IsRadio && g_Player.IsRadio) || (channel.IsRadio && !g_Player.IsRadio))

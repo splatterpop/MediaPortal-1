@@ -214,7 +214,7 @@ namespace SetupTv.Sections
         if (card != null)
         {
           string fileName = String.Format(@"{0}\{1}.mpg", card.RecordingFolder, Utils.MakeFileName(channel));
-          card.StartRecording(ref fileName, true, 0);
+          card.StartRecording(ref fileName);
           mpButtonTimeShift.Enabled = false;
         }
       }

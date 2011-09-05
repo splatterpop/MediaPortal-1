@@ -2041,15 +2041,13 @@ namespace TvService
     /// </summary>
     /// <param name="user">User</param>
     /// <param name="fileName">Name of the recording file.</param>
-    /// <param name="contentRecording">if true then create a content recording else a reference recording</param>
-    /// <param name="startTime">not used</param>
     /// <returns></returns>
-    public TvResult StartRecording(ref IUser user, ref string fileName, bool contentRecording, long startTime)
+    public TvResult StartRecording(ref IUser user, ref string fileName)
     {
       if (ValidateTvControllerParams(user))
         return TvResult.UnknownError;
       StopEPGgrabber();        
-      TvResult result = _cards[user.CardId].Recorder.Start(ref user, ref fileName, contentRecording, startTime);
+      TvResult result = _cards[user.CardId].Recorder.Start(ref user, ref fileName);
 
       if (result == TvResult.Succeeded)
       {
