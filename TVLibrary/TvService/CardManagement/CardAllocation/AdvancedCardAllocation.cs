@@ -85,6 +85,18 @@ namespace TvService
     #endregion
     #region ICardAllocation Members
 
+     /// <summary>
+    /// Gets a list of all free cards which can receive the channel specified
+    /// List is sorted.
+    /// </summary>
+    /// <returns>list containg all free cards which can receive the channel</returns>
+    public List<CardDetail> GetFreeCardsForChannel(IDictionary<int, ITvCardHandler> cards, Channel dbChannel,
+                                                   ref IUser user)
+     {
+       TvResult result;
+       return GetFreeCardsForChannel(cards, dbChannel, ref user, out result);
+     }
+
     /// <summary>
     /// Gets a list of all free cards which can receive the channel specified
     /// List is sorted.

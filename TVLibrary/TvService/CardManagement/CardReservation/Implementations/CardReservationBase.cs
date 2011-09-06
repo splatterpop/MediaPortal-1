@@ -153,7 +153,7 @@ namespace TvService
       {
         if (isTuningPending && ticketFound)
         {
-          Log.Debug("CardTune: tvcard={0}, user={1}, dbChannel={2}, ticket={3}, tunestate={4}, stopstate={5}", tvcard.DataBaseCard.IdCard, user.Name, dbChannel.IdChannel, ticket.Id, tvcard.Tuner.CardTuneState, tvcard.Tuner.CardStopState);
+          Log.Debug("CardReservationBase: tvcard={0}, user={1}, dbChannel={2}, ticket={3}, tunestate={4}, stopstate={5}", tvcard.DataBaseCard.IdCard, user.Name, dbChannel.IdChannel, ticket.Id, tvcard.Tuner.CardTuneState, tvcard.Tuner.CardStopState);
           tvResult = tvcard.Tuner.CardTune(ref user, channel, dbChannel);
 
           if (tvResult == TvResult.Succeeded)
@@ -201,12 +201,15 @@ namespace TvService
         isCardAvail = IsCardAvail(tvcard);
         if (!isCardAvail)
         {
-          IUser blockingUser = GetBlockingUser(tvcard);
-          hasUserHigherPriorityThanBlockingUser = (HasUserHigherPriorityThanBlockingUser(user, blockingUser));           
-          if (hasUserHigherPriorityThanBlockingUser)
+          if (tvcard.Tuner.CardTuneState != CardTuneState.TuneCancelled)
           {
-            tvcard.Tuner.CardTuneState = CardTuneState.TuneCancelled;
-          }
+            IUser blockingUser = GetBlockingUser(tvcard);
+            hasUserHigherPriorityThanBlockingUser = (HasUserHigherPriorityThanBlockingUser(user, blockingUser));
+            if (hasUserHigherPriorityThanBlockingUser)
+            {
+              tvcard.Tuner.CardTuneState = CardTuneState.TuneCancelled;
+            }
+          }          
         }
       }
       if (!isCardAvail)
@@ -375,17 +378,17 @@ namespace TvService
 
       if (cardTuneReservationTicket != null)
       {
-        Log.Debug("CardTuner.RequestCardTuneReservation: placed reservation with id={0}, tuningdetails={1}", cardTuneReservationTicket.Id, cardTuneReservationTicket.TuningDetail);
+        Log.Debug("CardReservationBase.RequestCardTuneReservation: placed reservation with id={0}, tuningdetails={1}", cardTuneReservationTicket.Id, cardTuneReservationTicket.TuningDetail);
       }
       else
       {
         if (ticketId > 0)
         {
-          Log.Debug("CardTuner.RequestCardTuneReservation: failed reservation tuningdetails={0}, res id blocking={1}, state={2}", tuningDetail, ticketId, cardTuneState);
+          Log.Debug("CardReservationBase.RequestCardTuneReservation: failed reservation tuningdetails={0}, res id blocking={1}, state={2}", tuningDetail, ticketId, cardTuneState);
         }
         else
         {
-          Log.Debug("CardTuner.RequestCardTuneReservation: failed reservation tuningdetails={0}, res id blocking={1}, state={2}", tuningDetail, "n/a", cardTuneState);          
+          Log.Debug("CardReservationBase.RequestCardTuneReservation: failed reservation tuningdetails={0}, res id blocking={1}, state={2}", tuningDetail, "n/a", cardTuneState);          
         }
       }              
       return cardTuneReservationTicket;
@@ -413,14 +416,14 @@ namespace TvService
       return blockingUser;
     }
 
-    private bool HasUserHigherPriorityThanBlockingUser(IUser user, IUser blockingUser)
+    private static bool HasUserHigherPriorityThanBlockingUser(IUser user, IUser blockingUser)
     {
       bool hasUserHigherPriority = false;
             
       if (blockingUser != null)
       {
         hasUserHigherPriority = (user.Priority > blockingUser.Priority);
-        Log.Debug("HasUserHigherPriorityThanBlockingUser: {0} - user '{1}' with prio={2} vs blocking user '{3}' with prio={4}", hasUserHigherPriority, 
+        Log.Debug("CardReservationBase.HasUserHigherPriorityThanBlockingUser: {0} - user '{1}' with prio={2} vs blocking user '{3}' with prio={4}", hasUserHigherPriority, 
           user.Name, user.Priority, blockingUser.Name, blockingUser.Priority);
       }
 
@@ -431,7 +434,7 @@ namespace TvService
 
     #region private members
 
-    private bool IsCamAlreadyDecodingChannel(IChannel tuningDetail, IChannel currentChannel)
+    private static bool IsCamAlreadyDecodingChannel(IChannel tuningDetail, IChannel currentChannel)
     {
       bool isCamAlreadyDecodingChannel = false;      
       if (currentChannel != null)

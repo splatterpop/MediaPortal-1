@@ -47,5 +47,13 @@ namespace TvService
     /// </summary>
     /// <returns>list containg all free cards which can receive the channel</returns>
     List<CardDetail> GetAvailableCardsForChannel(IDictionary<int, ITvCardHandler> cards, Channel dbChannel, ref IUser user);
+
+    /// <summary>
+    /// Gets a list of all free cards which can receive the channel specified
+    /// List is sorted.
+    /// </summary>
+    /// <returns>list containg all free cards which can receive the channel</returns>
+    List<CardDetail> GetFreeCardsForChannel(IDictionary<int, ITvCardHandler> cards, Channel dbChannel,
+                                                            ref IUser user);
   }
 }

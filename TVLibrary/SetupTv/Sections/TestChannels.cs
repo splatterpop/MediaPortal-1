@@ -988,12 +988,12 @@ namespace SetupTv.Sections
 
       //Thread.Sleep(1000);
 
-      ThreadPool.QueueUserWorkItem(delegate { StartTimeshifting(nosignal, low, 0, out mSecsElapsed, out result, out card); });
+      //ThreadPool.QueueUserWorkItem(delegate { StartTimeshifting(nosignal, low, 0, out mSecsElapsed, out result, out card); });
 
 
       //StartTimeshifting(tv3_plus, low2, 0, out mSecsElapsed, out result, out card);      
 
-      //StartTimeshifting(tv3, high, 0, out mSecsElapsed, out result, out card);
+      StartTimeshifting(tv3, high, 0, out mSecsElapsed, out result, out card);
 
       //Thread.Sleep(3000);
 

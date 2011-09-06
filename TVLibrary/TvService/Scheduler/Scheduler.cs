@@ -959,7 +959,7 @@ namespace TvService
       ICollection<ICardTuneReservationTicket> tickets = null;
       try
       {
-        var cardsIterated = new List<CardDetail>();
+        var cardsIterated = new HashSet<int>();
 
         int cardIterations = 0;
         bool moreCardsAvailable = true;
@@ -1039,25 +1039,22 @@ namespace TvService
       return recSucceded;
     }
 
-    private static CardDetail GetCardDetailByCardId(IEnumerable<CardDetail> cards, int cardDetailId)
-    {
-      return cards.FirstOrDefault(t => t.Id == cardDetailId);
-    }
-
-
     private void StartRecordOnFreeCard(RecordingDetail recDetail, ref IUser user)
     {
       var cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, _tvController);
-      TvResult tvResult;
-      List<CardDetail> freeCardsForReservation = cardAllocationStatic.GetFreeCardsForChannel(_tvController.CardCollection, recDetail.Channel, ref user, out tvResult);
+      List<CardDetail> freeCardsForReservation = cardAllocationStatic.GetFreeCardsForChannel(_tvController.CardCollection, recDetail.Channel, ref user);
       StartRecordOnCard(recDetail, ref user, freeCardsForReservation);
     }
     
-    private static void UpdateCardsIterated(ICollection<CardDetail> freeCardsIterated, IEnumerable<CardDetail> freeCards)
+    private static void UpdateCardsIterated(ICollection<int> freeCardsIterated, IEnumerable<CardDetail> freeCards)
     {
-      foreach (CardDetail card in freeCards.Where(card => !freeCardsIterated.Contains(card))) 
+      foreach (CardDetail card in freeCards)
       {
-        freeCardsIterated.Add(card);
+        int idCard = card.Card.IdCard;
+        if (!freeCardsIterated.Contains(idCard))
+        {
+          freeCardsIterated.Add(idCard);
+        }
       }
     }
 
