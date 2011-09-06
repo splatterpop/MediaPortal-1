@@ -70,103 +70,111 @@ namespace TvService
     /// <returns></returns>
     public TvResult Start(ref IUser user, ref string fileName)
     {
+      TvResult result = TvResult.UnknownError;
       try
       {
 #if DEBUG
-
         if (File.Exists(@"\failrec_" + _cardHandler.DataBaseCard.IdCard))
         {
           throw new Exception("failed rec. on purpose");
         }
 #endif
-
         if (IsTuneCancelled())
         {
           Stop(ref user);
-          return TvResult.TuneCancelled;
+          result = TvResult.TuneCancelled;
+          return result;
         }
+        
         _eventTimeshift.Reset();
-        if (_cardHandler.DataBaseCard.Enabled == false)
+        if (_cardHandler.DataBaseCard.Enabled)
         {
-          return TvResult.CardIsDisabled;
-        }
-
-        var context = _cardHandler.Card.Context as TvCardContext;
-        if (context == null)
-          return TvResult.UnknownChannel;
-
-        context.GetUser(ref user);
-        ITvSubChannel subchannel = GetSubChannel(user.SubChannel);
-        if (subchannel == null)
-          return TvResult.UnknownChannel;
-
-        _subchannel = subchannel;
-
-        fileName = fileName.Replace("\r\n", " ");
-        fileName = System.IO.Path.ChangeExtension(fileName, ".ts");
-
-        bool useErrorDetection = true;
-        if (useErrorDetection)
-        {
-          // fix mantis 0002807: A/V detection for recordings is not working correctly 
-          // reset the events ONLY before attaching the observer, at a later position it can already miss the a/v callback.
-          if (IsTuneCancelled())
+          var context = _cardHandler.Card.Context as TvCardContext;
+          if (context != null)
           {
-            return TvResult.TuneCancelled;
-          }
-          _eventVideo.Reset();
-          _eventAudio.Reset();
-          Log.Debug("Recorder.start add audioVideoEventHandler");
-          ((BaseSubChannel)subchannel).AudioVideoEvent += AudioVideoEventHandler;
-        }
-
-        Log.Write("card: StartRecording {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
-        bool result = subchannel.StartRecording(fileName);
-        if (result)
-        {
-          fileName = subchannel.RecordingFileName;
-          context.Owner = user;
-          if (useErrorDetection)
-          {
-            bool isScrambled;
-            if (!WaitForFile(ref user, out isScrambled))
+            context.GetUser(ref user);
+            ITvSubChannel subchannel = GetSubChannel(user.SubChannel);
+            if (subchannel != null)
             {
-              if (IsTuneCancelled())
-              {
-                return TvResult.TuneCancelled;
-              }
-              Log.Write("card: Recording failed! {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);                
-              string cardRecordingFolderName = _cardHandler.DataBaseCard.RecordingFolder;
-              Stop(ref user);
-              _cardHandler.Users.RemoveUser(user);
+              _subchannel = subchannel;
 
-              string recordingfolderName = System.IO.Path.GetDirectoryName(fileName);
-              if (recordingfolderName == cardRecordingFolderName)
+              fileName = fileName.Replace("\r\n", " ");
+              fileName = Path.ChangeExtension(fileName, ".ts");
+
+              bool useErrorDetection = true;
+              if (useErrorDetection)
               {
-                Utils.FileDelete(fileName);
+                // fix mantis 0002807: A/V detection for recordings is not working correctly 
+                // reset the events ONLY before attaching the observer, at a later position it can already miss the a/v callback.
+                if (IsTuneCancelled())
+                {
+                  result = TvResult.TuneCancelled;
+                  return result;
+                }
+                _eventVideo.Reset();
+                _eventAudio.Reset();
+                Log.Debug("Recorder.start add audioVideoEventHandler");
+                ((BaseSubChannel)subchannel).AudioVideoEvent += AudioVideoEventHandler;
               }
-              else
+
+              Log.Write("card: StartRecording {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
+              bool recStarted = subchannel.StartRecording(fileName);
+              if (recStarted)
               {
-                // delete 0-byte file in case of error
-                Utils.DeleteFileAndEmptyDirectory(fileName);
-              }
-              ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
-              if (IsTuneCancelled())
-              {
-                return TvResult.TuneCancelled;
-              }
-              if (isScrambled)
-              {
-                return TvResult.ChannelIsScrambled;
-              }
-              return TvResult.NoVideoAudioDetected;
-            }
-            ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
-          }
+                fileName = subchannel.RecordingFileName;
+                context.Owner = user;
+                if (useErrorDetection)
+                {
+                  bool isScrambled;
+                  if (!WaitForFile(ref user, out isScrambled))
+                  {
+                    ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
+                    if (IsTuneCancelled())
+                    {
+                      result = TvResult.TuneCancelled;
+                      return result;
+                    }
+                    Log.Write("card: Recording failed! {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
+                    string cardRecordingFolderName = _cardHandler.DataBaseCard.RecordingFolder;
+                    Stop(ref user);
+                    _cardHandler.Users.RemoveUser(user);
+
+                    string recordingfolderName = System.IO.Path.GetDirectoryName(fileName);
+                    if (recordingfolderName == cardRecordingFolderName)
+                    {
+                      Utils.FileDelete(fileName);
+                    }
+                    else
+                    {
+                      // delete 0-byte file in case of error
+                      Utils.DeleteFileAndEmptyDirectory(fileName);
+                    }                    
+                    if (IsTuneCancelled())
+                    {
+                      result = TvResult.TuneCancelled;                      
+                    }
+                    else if (isScrambled)
+                    {
+                      result = TvResult.ChannelIsScrambled;
+                    }
+                    else
+                    {
+                      result = TvResult.NoVideoAudioDetected; 
+                    }                    
+                  }
+                  else
+                  {
+                    result = TvResult.Succeeded;
+                  }
+                }
+              }  
+            }                              
+          }              
         }
-        StartEPGgrabber(user);
-
-        return TvResult.Succeeded;
+        else
+        {
+          result = TvResult.CardIsDisabled;
+        }
       }
       catch (Exception ex)
       {
@@ -177,6 +185,10 @@ namespace TvService
       {
         _eventTimeshift.Set();
         _cancelled = false;
+        if (result != TvResult.Succeeded)
+        {
+          StartEPGgrabber(user);
+        }
       }
       return TvResult.UnknownError;
     }

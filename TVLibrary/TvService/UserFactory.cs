@@ -133,8 +133,13 @@ namespace TvService
 
     public static IUser CreateBasicUser(string name, int cardId, int? defaultPriority)
     {
+      return CreateBasicUser(name, cardId, defaultPriority, IS_ADMIN_USER);
+    }
+
+    public static IUser CreateBasicUser(string name, int cardId, int? defaultPriority, bool isAdmin)
+    {
       int priorityCustomUser = GetDefaultPriority(name, defaultPriority);
-      IUser basicUser = new User(name, IS_ADMIN_USER, cardId, priorityCustomUser);
+      IUser basicUser = new User(name, isAdmin, cardId, priorityCustomUser);
       return basicUser;  
     }
 
@@ -169,5 +174,7 @@ namespace TvService
       }
       return priorityCustomUser;
     }
+
+    
   }
 }

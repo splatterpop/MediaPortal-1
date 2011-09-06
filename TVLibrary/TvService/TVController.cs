@@ -2591,7 +2591,6 @@ namespace TvService
         StopEPGgrabber();
 
         ICollection<ICardTuneReservationTicket> tickets = null;
-        int failedCardId = -1;
         try
         {
           var cardAllocationStatic = new AdvancedCardAllocationStatic(_layer, this);
@@ -2709,7 +2708,7 @@ namespace TvService
         {
           break;
         }
-        IUser userCopy = UserFactory.CreateBasicUser(user.Name, cardInfo.Id, user.Priority);
+        IUser userCopy = UserFactory.CreateBasicUser(user.Name, cardInfo.Id, user.Priority, user.IsAdmin);
         SetupTimeShiftingFolders(cardInfo);
         ITvCardHandler tvcard = _cards[cardInfo.Id];
         try
