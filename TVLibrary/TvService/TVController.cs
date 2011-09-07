@@ -3288,7 +3288,6 @@ namespace TvService
             {
               if (_layer.GetSetting("idleEPGGrabberEnabled", "yes").Value == "yes")
               {
-                Log.Write("Controller: epg stop");
                 StopEPGgrabber();                
               }
             }

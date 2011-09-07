@@ -81,7 +81,7 @@ namespace TvService
 #endif
         if (IsTuneCancelled())
         {
-          Stop(ref user);
+          //Stop(ref user);
           result = TvResult.TuneCancelled;
           return result;
         }
@@ -126,45 +126,14 @@ namespace TvService
                 if (useErrorDetection)
                 {
                   bool isScrambled;
-                  if (!WaitForFile(ref user, out isScrambled))
+                  if (WaitForFile(ref user, out isScrambled))
                   {
-                    ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
-                    if (IsTuneCancelled())
-                    {
-                      result = TvResult.TuneCancelled;
-                      return result;
-                    }
-                    Log.Write("card: Recording failed! {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
-                    string cardRecordingFolderName = _cardHandler.DataBaseCard.RecordingFolder;
-                    Stop(ref user);
-                    _cardHandler.Users.RemoveUser(user);
-
-                    string recordingfolderName = System.IO.Path.GetDirectoryName(fileName);
-                    if (recordingfolderName == cardRecordingFolderName)
-                    {
-                      Utils.FileDelete(fileName);
-                    }
-                    else
-                    {
-                      // delete 0-byte file in case of error
-                      Utils.DeleteFileAndEmptyDirectory(fileName);
-                    }                    
-                    if (IsTuneCancelled())
-                    {
-                      result = TvResult.TuneCancelled;                      
-                    }
-                    else if (isScrambled)
-                    {
-                      result = TvResult.ChannelIsScrambled;
-                    }
-                    else
-                    {
-                      result = TvResult.NoVideoAudioDetected; 
-                    }                    
+                    result = TvResult.Succeeded;
                   }
                   else
                   {
-                    result = TvResult.Succeeded;
+                    ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
+                    result = GetResultOfFailedRecording(isScrambled);                    
                   }
                 }
               }  
@@ -179,7 +148,7 @@ namespace TvService
       catch (Exception ex)
       {
         Log.Write(ex);
-        Stop(ref user);
+        result = TvResult.UnknownError;
       }
       finally
       {
@@ -187,10 +156,48 @@ namespace TvService
         _cancelled = false;
         if (result != TvResult.Succeeded)
         {
+          HandleFailedRecording(ref user, fileName);          
           StartEPGgrabber(user);
         }
       }
-      return TvResult.UnknownError;
+      return result;
+    }
+
+    private void HandleFailedRecording(ref IUser user, string fileName)
+    {
+      Log.Write("card: Recording failed! {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
+      string cardRecordingFolderName = _cardHandler.DataBaseCard.RecordingFolder;
+      Stop(ref user);
+      _cardHandler.Users.RemoveUser(user);
+
+      string recordingfolderName = System.IO.Path.GetDirectoryName(fileName);
+      if (recordingfolderName == cardRecordingFolderName)
+      {
+        Utils.FileDelete(fileName);
+      }
+      else
+      {
+        // delete 0-byte file in case of error
+        Utils.DeleteFileAndEmptyDirectory(fileName);
+      }
+    }
+
+    private TvResult GetResultOfFailedRecording(bool isScrambled)
+    {
+      TvResult result;    
+      if (IsTuneCancelled())
+      {
+        result = TvResult.TuneCancelled;
+      }
+      else if (isScrambled)
+      {
+        result = TvResult.ChannelIsScrambled;
+      }
+      else
+      {
+        result = TvResult.NoVideoAudioDetected;
+      }
+      return result;
     }
 
     /// <summary>

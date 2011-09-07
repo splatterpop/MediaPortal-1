@@ -274,7 +274,6 @@ namespace TvService
           throw new Exception("failed ts on purpose");
         }
 #endif
-
         if (IsTuneCancelled())
         {
           Stop(ref user);
