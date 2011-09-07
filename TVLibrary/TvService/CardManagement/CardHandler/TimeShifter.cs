@@ -354,7 +354,7 @@ namespace TvService
           context.OnZap(user);
           if (_linkageScannerEnabled)
             _cardHandler.Card.StartLinkageScanner(_linkageGrabber);
-          StartEPGgrabber(user);
+          StartTimeShiftingEPGgrabber(user);
           return TvResult.Succeeded;
         }
 

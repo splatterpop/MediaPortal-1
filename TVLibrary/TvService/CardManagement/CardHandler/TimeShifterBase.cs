@@ -227,7 +227,7 @@ namespace TvService
       return _cardHandler.Card.GetSubChannel(subchannel);
     }
 
-    protected void StartEPGgrabber(IUser user)
+    protected void StartTimeShiftingEPGgrabber(IUser user)
     {
       if (_timeshiftingEpgGrabberEnabled)
       {

@@ -144,6 +144,10 @@ namespace TvService
         {
           result = TvResult.CardIsDisabled;
         }
+        if (result == TvResult.Succeeded)
+        {
+          StartTimeShiftingEPGgrabber(user);
+        }
       }
       catch (Exception ex)
       {
@@ -153,11 +157,10 @@ namespace TvService
       finally
       {
         _eventTimeshift.Set();
-        _cancelled = false;
+        _cancelled = false;        
         if (result != TvResult.Succeeded)
-        {
-          HandleFailedRecording(ref user, fileName);          
-          StartEPGgrabber(user);
+        {          
+          HandleFailedRecording(ref user, fileName);                    
         }
       }
       return result;
