@@ -81,7 +81,6 @@ namespace TvService
 #endif
         if (IsTuneCancelled())
         {
-          //Stop(ref user);
           result = TvResult.TuneCancelled;
           return result;
         }
@@ -114,7 +113,7 @@ namespace TvService
                 _eventVideo.Reset();
                 _eventAudio.Reset();
                 Log.Debug("Recorder.start add audioVideoEventHandler");
-                ((BaseSubChannel)subchannel).AudioVideoEvent += AudioVideoEventHandler;
+                AttachAudioVideoEventHandler(subchannel);                
               }
 
               Log.Write("card: StartRecording {0} {1}", _cardHandler.DataBaseCard.IdCard, fileName);
@@ -132,8 +131,8 @@ namespace TvService
                   }
                   else
                   {
-                    ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
-                    result = GetResultOfFailedRecording(isScrambled);                    
+                    DetachAudioVideoEventHandler(subchannel);
+                    result = GetFailedTvResult(isScrambled);
                   }
                 }
               }  
@@ -185,24 +184,6 @@ namespace TvService
       }
     }
 
-    private TvResult GetResultOfFailedRecording(bool isScrambled)
-    {
-      TvResult result;    
-      if (IsTuneCancelled())
-      {
-        result = TvResult.TuneCancelled;
-      }
-      else if (isScrambled)
-      {
-        result = TvResult.ChannelIsScrambled;
-      }
-      else
-      {
-        result = TvResult.NoVideoAudioDetected;
-      }
-      return result;
-    }
-
     /// <summary>
     /// Stops recording.
     /// </summary>
@@ -210,55 +191,75 @@ namespace TvService
     /// <returns></returns>
     public bool Stop(ref IUser user)
     {
+      bool stop = false;
       try
       {
-        if (_cardHandler.DataBaseCard.Enabled == false)
-          return false;
-        Log.Write("card: StopRecording card={0}, user={1}", _cardHandler.DataBaseCard.IdCard, user.Name);
-        var context = _cardHandler.Card.Context as TvCardContext;
-        if (context == null)
+        if (_cardHandler.DataBaseCard.Enabled)
         {
-          Log.Write("card: StopRecording context null");
-          return false;
-        }
-        if (user.IsAdmin)
-        {
-          context.GetUser(ref user);
-          ITvSubChannel subchannel = GetSubChannel(user.SubChannel);
-          if (subchannel == null)
+          Log.Write("card: StopRecording card={0}, user={1}", _cardHandler.DataBaseCard.IdCard, user.Name);
+          var context = _cardHandler.Card.Context as TvCardContext;
+          if (context != null)
           {
-            Log.Write("card: StopRecording subchannel null, skipping");
-            return false;
-          }
-          subchannel.StopRecording();
-          _cardHandler.Card.FreeSubChannel(user.SubChannel);
-          if (subchannel.IsTimeShifting == false || context.Users.Length <= 1)
-          {
-            _cardHandler.Users.RemoveUser(user);
-          }
-        }
-
-        IUser[] users = context.Users;
-        foreach (IUser t in users) 
-        {
-          ITvSubChannel subchannel = GetSubChannel(t.SubChannel);
-          if (subchannel != null)
-          {
-            if (subchannel.IsRecording)
+            if (user.IsAdmin)
             {
-              Log.Write("card: StopRecording setting new context owner on user '{0}'", t.Name);
-              context.Owner = t;
-              break;
-            }
+              stop = StopRecording(ref user, context);
+              if (stop)
+              {
+                SetContextOwnerToNextRecUser(context);
+              }  
+            }                      
+          }
+          else
+          {
+            Log.Write("card: StopRecording context null");
           }
         }
-        return true;
       }
       catch (Exception ex)
       {
         Log.Write(ex);
       }
-      return false;
+      return stop;
+    }
+
+    private bool StopRecording(ref IUser user, TvCardContext context)
+    {
+      bool stop = false;
+      context.GetUser(ref user);
+      ITvSubChannel subchannel = GetSubChannel(user.SubChannel);
+      if (subchannel != null)
+      {
+        subchannel.StopRecording();
+        _cardHandler.Card.FreeSubChannel(user.SubChannel);
+        if (subchannel.IsTimeShifting == false || context.Users.Length <= 1)
+        {
+          _cardHandler.Users.RemoveUser(user);
+        }
+        stop = true;
+      }
+      else
+      {
+        Log.Write("card: StopRecording subchannel null, skipping");        
+      }
+      return stop;
+    }
+
+    private void SetContextOwnerToNextRecUser(ITvCardContext context)
+    {
+      IUser[] users = context.Users;
+      foreach (IUser t in users)
+      {
+        ITvSubChannel subchannel = GetSubChannel(t.SubChannel);
+        if (subchannel != null)
+        {
+          if (subchannel.IsRecording)
+          {
+            Log.Write("card: StopRecording setting new context owner on user '{0}'", t.Name);
+            context.Owner = t;
+            break;
+          }
+        }
+      }
     }
 
     /// <summary>

@@ -233,11 +233,49 @@ namespace TvService
       {
         Channel channel = Channel.Retrieve(user.IdChannel);
         if (channel.GrabEpg)
+        {
           _cardHandler.Card.GrabEpg();
+        }
         else
+        {
           Log.Info("TimeshiftingEPG: channel {0} is not configured for grabbing epg",
                    channel.DisplayName);
+        }
       }
+    }
+
+    protected TvResult GetFailedTvResult(bool isScrambled)
+    {
+      TvResult result;    
+      if (IsTuneCancelled())
+      {
+        result = TvResult.TuneCancelled;
+      }
+      else if (isScrambled)
+      {
+        result = TvResult.ChannelIsScrambled;
+      }
+      else
+      {
+        result = TvResult.NoVideoAudioDetected;
+      }
+      return result;
+    }
+
+    protected void AttachAudioVideoEventHandler(ITvSubChannel subchannel)
+    {
+      if (subchannel is BaseSubChannel)
+      {
+        ((BaseSubChannel)subchannel).AudioVideoEvent += AudioVideoEventHandler;
+      }
+    }
+
+    protected void DetachAudioVideoEventHandler(ITvSubChannel subchannel)
+    {
+      if (subchannel is BaseSubChannel)
+      {
+        ((BaseSubChannel)subchannel).AudioVideoEvent -= AudioVideoEventHandler;
+      }      
     }
   }
 }
