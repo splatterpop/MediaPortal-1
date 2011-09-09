@@ -20,6 +20,7 @@
 
 #region usings 
 
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TvControl;
@@ -40,15 +41,16 @@ namespace TvService
       get { return _logEnabled; }
       set { _logEnabled = value; }
     }
-
+    
     protected readonly TvBusinessLayer _businessLayer;
-
-    protected readonly IController _controller;
+    protected readonly IController _controller;    
 
     protected CardAllocationBase(TvBusinessLayer businessLayer, IController controller)
-    {
+    {      
       _businessLayer = businessLayer;
       _controller = controller;
+      //_tuningChannelMapping = new Dictionary<int, IList<IChannel>>();
+      //_channelMapping = new Dictionary<int, bool>();
     }
 
     #region protected members            
@@ -124,14 +126,9 @@ namespace TvService
       return isCamAlreadyDecodingChannel;
     }
 
-    protected bool IsChannelMappedToCard(Channel dbChannel, Card card)
-    {
-      //check if channel is mapped to this card and that the mapping is not for "Epg Only"
-      bool isChannelMappedToCard = _businessLayer.IsChannelMappedToCard(dbChannel, card, false);
-      return isChannelMappedToCard;
-    }
+   
 
-    protected static bool IsValidTuningDetails(IList<IChannel> tuningDetails)
+    protected static bool IsValidTuningDetails(ICollection<IChannel> tuningDetails)
     {
       bool isValid = (tuningDetails != null && tuningDetails.Count > 0);
       return isValid;
@@ -266,6 +263,6 @@ namespace TvService
              tvcard.SupportsSubChannels;
     }
 
-    #endregion
+    #endregion    
   }
 }

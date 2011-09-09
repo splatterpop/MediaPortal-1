@@ -29,35 +29,13 @@ namespace TvService
 
   public class AdvancedCardAllocationTicket : AdvancedCardAllocation
   {
-    protected readonly ICollection<ICardTuneReservationTicket> _tickets;
+    private readonly ICollection<ICardTuneReservationTicket> _tickets;
 
     public AdvancedCardAllocationTicket(TvBusinessLayer businessLayer, IController controller, ICollection<ICardTuneReservationTicket> tickets)
       : base(businessLayer, controller)
     {
       _tickets = tickets;
-    }
-
-    //used by recording
-    /*public List<CardDetail> UpdateAvailableCardsForChannelBasedOnTicket(IEnumerable<CardDetail> cardsAvailable)
-    {
-      var cardetails = new List<CardDetail>();
-
-      foreach (CardDetail cardDetail in cardsAvailable)
-      {
-        ICardTuneReservationTicket ticket = _tickets.FirstOrDefault(t => t.CardId == cardDetail.Card.IdCard);
-
-        if (ticket != null)
-        {          
-          cardDetail.SameTransponder = ticket.IsSameTransponder;
-          cardDetail.NumberOfOtherUsers = ticket.NumberOfOtherUsersOnCurrentCard;
-          LogNumberOfOtherUsersFound(cardDetail);
-          cardetails.Add(cardDetail);
-        }
-      }
-
-      cardetails.Sort();
-      return cardetails;
-    }*/
+    }   
 
     private void LogNumberOfOtherUsersFound(CardDetail cardDetail)
     {
@@ -72,7 +50,6 @@ namespace TvService
       }
     }
 
-    //used by timeshifting
     public ICollection<CardDetail> UpdateFreeCardsForChannelBasedOnTicket(IDictionary<int, ITvCardHandler> cards, ICollection<CardDetail> cardsAvailable, IUser user, out TvResult result)
     {
       var cardetails = new List<CardDetail>();
@@ -112,7 +89,7 @@ namespace TvService
 
     #region overrides   
 
-    public override bool CanCardTuneChannel(ITvCardHandler cardHandler, Channel dbChannel, IChannel tuningDetail)
+    protected override bool CanCardTuneChannel(ITvCardHandler cardHandler, Channel dbChannel, IChannel tuningDetail)
     {
       return true;
     }

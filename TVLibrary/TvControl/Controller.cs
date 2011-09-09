@@ -1075,6 +1075,9 @@ namespace TvControl
 
     #endregion
 
-    
+    /// <summary>
+    /// Returns a dictionary of channels that are timeshfiting and recording.
+    /// </summary>
+    Dictionary<int, ChannelState> GetAllTimeshiftingAndRecordingChannels();
   }
 }

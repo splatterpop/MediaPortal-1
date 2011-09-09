@@ -301,7 +301,7 @@ namespace TvService
               {
                 _subchannel = subchannel;
                 Log.Write("card: CAM enabled : {0}", _cardHandler.HasCA);
-                var pmtReceived = IsPMTreceived(subchannel);
+                bool pmtReceived = IsPMTreceived(subchannel);
                 if (pmtReceived)
                 {
                   AttachAudioVideoEventHandler(subchannel);

@@ -39,7 +39,6 @@ namespace TvService
 
     public AdvancedCardAllocation(TvBusinessLayer businessLayer, IController controller) : base(businessLayer, controller)
     {
-      
     }
 
     private static bool IsCardEnabled(ITvCardHandler cardHandler)
@@ -204,8 +203,7 @@ namespace TvService
           Log.Info("Controller: find card for channel {0}", dbChannel.DisplayName);
         }
         //get the tuning details for the channel
-        List<IChannel> tuningDetails = _businessLayer.GetTuningChannelsByDbChannel(dbChannel);
-
+        ICollection<IChannel> tuningDetails = CardAllocationCache.GetTuningDetailsByChannelId(dbChannel);// _businessLayer.GetTuningChannelsByDbChannel(dbChannel);
         bool isValidTuningDetails = IsValidTuningDetails(tuningDetails);
         if (!isValidTuningDetails)
         {
@@ -263,7 +261,7 @@ namespace TvService
               Log.Info("Controller:    card:{0} type:{1} can tune to channel", cardId, cardHandler.Type);
             }            
             int nrOfOtherUsers = NumberOfOtherUsersOnCurrentCard(cardHandler, user);            
-            CardDetail cardInfo = new CardDetail(cardId, cardHandler.DataBaseCard, tuningDetail, isSameTransponder,
+            var cardInfo = new CardDetail(cardId, cardHandler.DataBaseCard, tuningDetail, isSameTransponder,
                                                  nrOfOtherUsers);
             cardsAvailable.Add(cardInfo);
           }
@@ -302,8 +300,8 @@ namespace TvService
       }
       return canCardDecodeChannel;
     }
-           
-    public virtual bool CanCardTuneChannel(ITvCardHandler cardHandler, Channel dbChannel, IChannel tuningDetail)
+
+    protected virtual bool CanCardTuneChannel(ITvCardHandler cardHandler, Channel dbChannel, IChannel tuningDetail)
     {
       int cardId = cardHandler.DataBaseCard.IdCard;
       bool isCardEnabled = IsCardEnabled(cardHandler);
@@ -336,7 +334,7 @@ namespace TvService
       }
 
       //check if channel is mapped to this card and that the mapping is not for "Epg Only"
-      bool isChannelMappedToCard = IsChannelMappedToCard(dbChannel, cardHandler.DataBaseCard);
+      bool isChannelMappedToCard = CardAllocationCache.IsChannelMappedToCard(dbChannel, cardHandler.DataBaseCard);
       if (!isChannelMappedToCard)
       {
         if (LogEnabled)

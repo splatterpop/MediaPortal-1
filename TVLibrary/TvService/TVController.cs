@@ -58,8 +58,10 @@ namespace TvService
 
     #region variables
 
-    private TvBusinessLayer _layer = new TvBusinessLayer();
-    private ICardAllocation _cardAllocation;
+    private readonly IDictionary<int, bool> _cardPresent = new Dictionary<int, bool>();
+    private readonly TvBusinessLayer _layer = new TvBusinessLayer();
+    private readonly ICardAllocation _cardAllocation;
+    private readonly ChannelStates _channelStates;
 
     /// <summary>
     /// EPG grabber for DVB
@@ -182,6 +184,7 @@ namespace TvService
     /// </summary>
     public TVController()
     {
+      _channelStates = new ChannelStates(_layer, this);
       _cardAllocation = new AdvancedCardAllocation(_layer, this);
     }
 
@@ -976,7 +979,7 @@ namespace TvService
       if (ValidateTvControllerParams(cardId))
         return false;
       return _cards[cardId].Tuner.CanTune(channel);
-    }
+    }    
 
     /// <summary>
     /// Method to check if card is currently present and detected
@@ -984,31 +987,28 @@ namespace TvService
     /// <returns>true if card is present otherwise false</returns>		
     public bool CardPresent(int cardId)
     {
-      //gemx 01.04.08: This is needed otherwise we get a recursive endless loop
-      if (!_cards.ContainsKey(cardId))
-        return false;
-      if (!IsLocal(cardId))
+      bool cardPresent = false;
+      if (cardId > 0)
       {
-        RemoteControl.HostName = _cards[cardId].DataBaseCard.ReferencedServer().HostName;
-        return RemoteControl.Instance.CardPresent(cardId);
-      }
-      if (!_cards.ContainsKey(cardId))
-        return false;
-      if (cardId < 0)
-        return false;
-      string devicePath = _cards[cardId].Card.DevicePath;
-      if (devicePath.Length > 0)
-      {
-        // Remove it from the local card collection
-        for (int i = 0; i < _localCardCollection.Cards.Count; i++)
+        bool cardPresentFound = _cardPresent.TryGetValue(cardId, out cardPresent);
+
+        if (!cardPresentFound)
         {
-          if (_localCardCollection.Cards[i].DevicePath == devicePath)
+          if (_cards.ContainsKey(cardId))
           {
-            return _localCardCollection.Cards[i].CardPresent;
+            string devicePath = _cards[cardId].Card.DevicePath;
+            if (devicePath.Length > 0)
+            {
+              // Remove it from the local card collection
+              cardPresent =
+                (from t in _localCardCollection.Cards where t.DevicePath == devicePath select t.CardPresent).
+                  FirstOrDefault();
+            }
           }
+          _cardPresent.Add(cardId, cardPresent);
         }
       }
-      return false;
+      return cardPresent;
     }
 
     /// <summary>
@@ -2005,7 +2005,7 @@ namespace TvService
       return false;
     }
 
-    private bool DoStopTimeShifting(ref IUser user, int cardId) 
+    private bool DoStopTimeShifting(ref IUser user, int cardId)
     {
       if (IsGrabbingEpg(cardId))
       {
@@ -2044,7 +2044,9 @@ namespace TvService
     public TvResult StartRecording(ref IUser user, ref string fileName)
     {
       if (ValidateTvControllerParams(user))
+      {
         return TvResult.UnknownError;
+      }
       StopEPGgrabber();        
       TvResult result = _cards[user.CardId].Recorder.Start(ref user, ref fileName);
 
@@ -2068,7 +2070,9 @@ namespace TvService
     public bool StopRecording(ref IUser user)
     {
       if (ValidateTvControllerParams(user))
+      {
         return false;
+      }
       bool result = _cards[user.CardId].Recorder.Stop(ref user);
 
       if (result)
@@ -2721,7 +2725,6 @@ namespace TvService
             HandleAllCardsBusy(tickets, out result, out failedCardId, cardInfo, tvcard);
             continue;
           }
-
           cardsIterated++;
           bool isTimeshifting = ticket.IsAnySubChannelTimeshifting;
           if (isTimeshifting)
@@ -3939,10 +3942,9 @@ namespace TvService
     private void UpdateChannelStatesForUsers()
     {      
       //System.Diagnostics.Debugger.Launch();
-      // this section makes sure that all users are updated in regards to channel states.      
-      ChannelStates channelStates = new ChannelStates(_layer, this);
+      // this section makes sure that all users are updated in regards to channel states.            
 
-      if (channelStates != null)
+      if (_channelStates != null)
       {
         IList<ChannelGroup> groups = ChannelGroup.ListAll();
 
@@ -3976,7 +3978,7 @@ namespace TvService
           }
         }
 
-        channelStates.SetChannelStates(_cards, _tvChannelListGroups, this);
+        _channelStates.SetChannelStates(_cards, _tvChannelListGroups, this);
       }
     }
 
@@ -4135,7 +4137,7 @@ namespace TvService
 
         _cards[user.CardId].Tuner.OnAfterTuneEvent += Tuner_OnAfterTuneEvent;
         _cards[user.CardId].Tuner.OnBeforeTuneEvent += Tuner_OnBeforeTuneEvent;
-
+        
         cardResTS.OnStartCardTune += CardResTsOnStartCardTune;
         TvResult result = cardResTS.CardTune(_cards[user.CardId], ref user, channel, dbChannel, ticket);
         cardResTS.OnStartCardTune -= CardResTsOnStartCardTune;

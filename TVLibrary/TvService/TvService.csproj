@@ -91,6 +91,7 @@
     <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocation.cs" />
     <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocationTicket.cs" />
     <Compile Include="CardManagement\CardAllocation\CardAllocationBase.cs" />
+    <Compile Include="CardManagement\CardAllocation\CardAllocationCache.cs" />
     <Compile Include="CardManagement\CardAllocation\ChannelStates.cs" />
     <Compile Include="CardManagement\CardAllocation\AdvancedCardAllocationStatic.cs" />
     <Compile Include="CardManagement\CardHandler\AudioStreams.cs" />
