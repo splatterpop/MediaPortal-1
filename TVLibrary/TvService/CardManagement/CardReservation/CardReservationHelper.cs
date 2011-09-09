@@ -297,12 +297,15 @@ namespace TvService
 
     public static void CancelCardReservationAndRemoveTicket(ITvCardHandler tvCardHandler, ICollection<ICardTuneReservationTicket> tickets)
     {
-      int cardId = tvCardHandler.DataBaseCard.IdCard;
-      ICardTuneReservationTicket ticket = tickets.FirstOrDefault(t => t.CardId == cardId);
-      if (ticket != null)
+      if (tvCardHandler != null && tickets != null)
       {
-        tickets.Remove(ticket);
-        CancelCardReservation(tvCardHandler, ticket);          
+        int cardId = tvCardHandler.DataBaseCard.IdCard;
+        ICardTuneReservationTicket ticket = tickets.FirstOrDefault(t => t.CardId == cardId);
+        if (ticket != null)
+        {
+          tickets.Remove(ticket);
+          CancelCardReservation(tvCardHandler, ticket);
+        }
       }
     }
 

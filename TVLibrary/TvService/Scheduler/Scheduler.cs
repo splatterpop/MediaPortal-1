@@ -1140,12 +1140,11 @@ namespace TvService
         }
         catch (Exception ex)
         {
-          CardReservationHelper.CancelCardReservationAndRemoveTicket(tvCardHandler, tickets);
-          Log.Write(ex);
-          StopFailedRecord(recDetail);
+          Log.Error(ex.ToString());          
         }
         Log.Write("scheduler: recording failed, lets try next available card.");
         CardReservationHelper.CancelCardReservationAndRemoveTicket(tvCardHandler, tickets);
+        StopFailedRecord(recDetail);
         if (cardInfo != null && cards.Contains(cardInfo))
         {
           cards.Remove(cardInfo);
