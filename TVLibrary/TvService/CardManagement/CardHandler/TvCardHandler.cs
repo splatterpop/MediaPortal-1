@@ -20,6 +20,7 @@
 
 using System;
 using System.Net;
+using System.Threading;
 using TvLibrary;
 using TvLibrary.Interfaces;
 using TvLibrary.Implementations.DVB;
@@ -654,7 +655,7 @@ namespace TvService
             return null;
           }
         }
-        ITvCardContext context = _card.Context as ITvCardContext;
+        var context = _card.Context as ITvCardContext;
         if (context == null)
           return null;
         context.GetUser(ref user);
@@ -662,6 +663,10 @@ namespace TvService
         if (subchannel == null)
           return null;
         return subchannel.CurrentChannel;
+      }
+      catch(ThreadAbortException)
+      {
+        return null;
       }
       catch (Exception ex)
       {
