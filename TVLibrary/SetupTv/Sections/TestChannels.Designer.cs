@@ -32,6 +32,7 @@ namespace SetupTv.Sections
       System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TestChannels));
       this.mpLabelChannel = new MediaPortal.UserInterface.Controls.MPLabel();
       this.mpGroupBox1 = new MediaPortal.UserInterface.Controls.MPGroupBox();
+      this.btnCustom = new MediaPortal.UserInterface.Controls.MPButton();
       this.lblIgnored = new MediaPortal.UserInterface.Controls.MPLabel();
       this.txtIgnored = new MediaPortal.UserInterface.Controls.MPNumericTextBox();
       this.lblDisc = new MediaPortal.UserInterface.Controls.MPLabel();
@@ -85,7 +86,6 @@ namespace SetupTv.Sections
       this.subchannels = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
       this.chkSynch = new MediaPortal.UserInterface.Controls.MPCheckBox();
       this.chkRndPrio = new MediaPortal.UserInterface.Controls.MPCheckBox();
-      this.btnCustom = new MediaPortal.UserInterface.Controls.MPButton();
       this.mpGroupBox1.SuspendLayout();
       this.SuspendLayout();
       // 
@@ -128,6 +128,16 @@ namespace SetupTv.Sections
       this.mpGroupBox1.TabIndex = 53;
       this.mpGroupBox1.TabStop = false;
       this.mpGroupBox1.Text = "Status:";
+      // 
+      // btnCustom
+      // 
+      this.btnCustom.Location = new System.Drawing.Point(323, 149);
+      this.btnCustom.Name = "btnCustom";
+      this.btnCustom.Size = new System.Drawing.Size(36, 23);
+      this.btnCustom.TabIndex = 80;
+      this.btnCustom.Text = "Custom";
+      this.btnCustom.UseVisualStyleBackColor = true;
+      this.btnCustom.Click += new System.EventHandler(this.btnCustom_Click);
       // 
       // lblIgnored
       // 
@@ -576,8 +586,6 @@ namespace SetupTv.Sections
       // chkSynch
       // 
       this.chkSynch.AutoSize = true;
-      this.chkSynch.Checked = true;
-      this.chkSynch.CheckState = System.Windows.Forms.CheckState.Checked;
       this.chkSynch.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
       this.chkSynch.Location = new System.Drawing.Point(278, 245);
       this.chkSynch.Name = "chkSynch";
@@ -599,16 +607,6 @@ namespace SetupTv.Sections
       this.chkRndPrio.Text = "Random user prio.";
       this.chkRndPrio.UseVisualStyleBackColor = true;
       this.chkRndPrio.CheckedChanged += new System.EventHandler(this.chkRndPrio_CheckedChanged);
-      // 
-      // btnCustom
-      // 
-      this.btnCustom.Location = new System.Drawing.Point(323, 149);
-      this.btnCustom.Name = "btnCustom";
-      this.btnCustom.Size = new System.Drawing.Size(36, 23);
-      this.btnCustom.TabIndex = 80;
-      this.btnCustom.Text = "Custom";
-      this.btnCustom.UseVisualStyleBackColor = true;
-      this.btnCustom.Click += new System.EventHandler(this.btnCustom_Click);
       // 
       // TestChannels
       // 
