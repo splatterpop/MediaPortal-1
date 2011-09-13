@@ -314,6 +314,10 @@ namespace TvService
           }
           return _card.CardType;
         }
+        catch (ThreadAbortException)
+        {
+          return CardType.Analog;
+        }
         catch (Exception ex)
         {
           Log.Write(ex);
@@ -347,6 +351,10 @@ namespace TvService
           }
           return _card.Name;
         }
+        catch (ThreadAbortException)
+        {
+          return "";
+        }
         catch (Exception ex)
         {
           Log.Write(ex);
@@ -377,6 +385,10 @@ namespace TvService
           }
         }
         return _dbsCard.DevicePath;
+      }
+      catch (ThreadAbortException)
+      {
+        return "";
       }
       catch (Exception ex)
       {
@@ -413,6 +425,10 @@ namespace TvService
           }
           return _card.IsTunerLocked;
         }
+        catch (ThreadAbortException)
+        {
+          return false;
+        }
         catch (Exception ex)
         {
           Log.Write(ex);
@@ -447,6 +463,10 @@ namespace TvService
             }
           }
           return _card.SignalQuality;
+        }
+        catch (ThreadAbortException)
+        {
+          return 0;
         }
         catch (Exception ex)
         {
@@ -483,6 +503,10 @@ namespace TvService
           }
           return _card.SignalLevel;
         }
+        catch (ThreadAbortException)
+        {
+          return 0;
+        }
         catch (Exception ex)
         {
           Log.Write(ex);
@@ -516,6 +540,9 @@ namespace TvService
         }
         _card.ResetSignalUpdate();
       }
+      catch (ThreadAbortException)
+      {       
+      }
       catch (Exception ex)
       {
         Log.Write(ex);
@@ -548,6 +575,10 @@ namespace TvService
             }
           }
           return _card.MinChannel;
+        }
+        catch (ThreadAbortException)
+        {
+          return 0;
         }
         catch (Exception ex)
         {
@@ -583,6 +614,10 @@ namespace TvService
             }
           }
           return _card.MaxChannel;
+        }
+        catch (ThreadAbortException)
+        {
+          return 0;
         }
         catch (Exception ex)
         {
@@ -703,6 +738,10 @@ namespace TvService
         context.GetUser(ref user);
         return user.IdChannel;
       }
+      catch (ThreadAbortException)
+      {
+        return -1;
+      }
       catch (Exception ex)
       {
         Log.Write(ex);
@@ -746,6 +785,10 @@ namespace TvService
           return "";
         return subchannel.CurrentChannel.Name;
       }
+      catch (ThreadAbortException)
+      {
+        return "";
+      }
       catch (Exception ex)
       {
         Log.Write(ex);
@@ -785,6 +828,10 @@ namespace TvService
         if (subchannel == null)
           return false;
         return (false == subchannel.IsReceivingAudioVideo);
+      }
+      catch (ThreadAbortException)
+      {
+        return false;
       }
       catch (Exception ex)
       {
@@ -841,6 +888,9 @@ namespace TvService
           _card.StopGraph();
         }
       }
+      catch (ThreadAbortException)
+      {        
+      }
       catch (Exception ex)
       {
         Log.Write(ex);
@@ -885,6 +935,9 @@ namespace TvService
           context.Clear();
         }
         _card.StopGraph();
+      }
+      catch (ThreadAbortException)
+      {       
       }
       catch (Exception ex)
       {
