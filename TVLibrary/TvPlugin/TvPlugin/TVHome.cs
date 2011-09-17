@@ -784,7 +784,6 @@ namespace TvPlugin
                                             DateTime.Now, DateTime.Now.AddDays(1));
         newSchedule.PreRecordInterval = Int32.Parse(layer.GetSetting("preRecordInterval", "5").Value);
         newSchedule.PostRecordInterval = Int32.Parse(layer.GetSetting("postRecordInterval", "5").Value);
-        newSchedule.RecommendedCard = Card.Id;
         newSchedule.Persist();
         server.OnNewSchedule();
       }
@@ -811,8 +810,7 @@ namespace TvPlugin
         Schedule newSchedule = new Schedule(channel.IdChannel, channel.CurrentProgram.Title,
                                             channel.CurrentProgram.StartTime, channel.CurrentProgram.EndTime);
         newSchedule.PreRecordInterval = Int32.Parse(layer.GetSetting("preRecordInterval", "5").Value);
-        newSchedule.PostRecordInterval = Int32.Parse(layer.GetSetting("postRecordInterval", "5").Value);
-        newSchedule.RecommendedCard = Card.Id;
+        newSchedule.PostRecordInterval = Int32.Parse(layer.GetSetting("postRecordInterval", "5").Value);        
         newSchedule.Persist();
         server.OnNewSchedule();
       }

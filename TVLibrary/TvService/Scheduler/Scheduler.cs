@@ -1032,7 +1032,7 @@ namespace TvService
 
         if (!recSucceded)
         {
-          CardDetail cardInfo = GetCardInfoForRecording(recDetail, cards);
+          CardDetail cardInfo = GetCardInfoForRecording(cards);
           cards.Remove(cardInfo);
         }
       }
@@ -1066,7 +1066,7 @@ namespace TvService
       for (int k = 0; k < maxCards; k++)
       {
         ITvCardHandler tvCardHandler;
-        CardDetail cardInfo = GetCardInfoForRecording(recDetail, cards);
+        CardDetail cardInfo = GetCardInfoForRecording(cards);
         if (_tvController.CardCollection.TryGetValue(cardInfo.Id, out tvCardHandler))
         {
           ICardTuneReservationTicket ticket = GetTicketByCardId(tickets, cardInfo.Id);
@@ -1075,7 +1075,7 @@ namespace TvService
           {
             try
             {
-              cardInfo = HijackCardForRecording(recDetail.Schedule.RecommendedCard, cards, ticket);
+              cardInfo = HijackCardForRecording(cards, ticket);
               result = SetupAndStartRecord(recDetail, ref user, cardInfo, ticket, cardResImpl);
               if (result)
               {
@@ -1120,7 +1120,7 @@ namespace TvService
         ITvCardHandler tvCardHandler = null;
         try
         {
-          cardInfo = GetCardInfoForRecording(recDetail, cards);
+          cardInfo = GetCardInfoForRecording(cards);
           if (_tvController.CardCollection.TryGetValue(cardInfo.Id, out tvCardHandler))
           {
             ICardTuneReservationTicket ticket = GetTicketByCardId(tickets, cardInfo.Id);
@@ -1235,15 +1235,10 @@ namespace TvService
       }
     }
 
-    private CardDetail GetCardInfoForRecording(RecordingDetail recDetail, IEnumerable<CardDetail> freeCards)
+    private static CardDetail GetCardInfoForRecording(IEnumerable<CardDetail> freeCards)
     {
       //first try to start recording using the recommended card
-      CardDetail cardInfo = FindRecommendedCard(recDetail.Schedule.RecommendedCard, freeCards);
-
-      if (cardInfo == null)
-      {
-        cardInfo = freeCards.FirstOrDefault();
-      }
+      CardDetail cardInfo = freeCards.FirstOrDefault();      
       return cardInfo;
     }
 
@@ -1266,47 +1261,18 @@ namespace TvService
       return maxCards;
     }
 
-
-    private static CardDetail FindRecommendedCard(int recommendedCard, IEnumerable<CardDetail> freeCards)
+    private CardDetail HijackCardForRecording(ICollection<CardDetail> availableCards, ICardTuneReservationTicket ticket)
     {
-      CardDetail cardInfo = null;
-      if (recommendedCard > 0)
-      {
-        foreach (CardDetail card in freeCards.Where(card => card.Id == recommendedCard))
-        {
-          cardInfo = card;
-          Log.Write("Scheduler : record on recommended card:{0} priority:{1}", cardInfo.Id, cardInfo.Card.Priority);
-          break;
-        }
-        if (cardInfo == null)
-        {
-          Log.Write("Scheduler : recommended card:{0} is not available", recommendedCard);
-        }
-      }
-      return cardInfo;
-    }
+      CardDetail cardInfo = HijackCardTimeshiftingOnSameTransponder(availableCards, ticket);
 
-    private CardDetail HijackCardForRecording(int recommendedCard, ICollection<CardDetail> availableCards, ICardTuneReservationTicket ticket)
-    {
-      CardDetail cardInfo = null;
-      if ((_layer.GetSetting("scheduleroverlivetv", "yes").Value == "yes"))
+      if (cardInfo == null)
       {
-        cardInfo = HijackCardTimeshiftingOnSameTransponder(availableCards, recommendedCard, ticket);
-
-        if (cardInfo == null)
-        {
-          cardInfo = HijackCardTimeshiftingOnDifferentTransponder(availableCards, ticket);
-        }
-        if (cardInfo == null)
-        {
-          Log.Write("Scheduler : no free card was found and no card was found where user can be kicked.");
-        }
+        cardInfo = HijackCardTimeshiftingOnDifferentTransponder(availableCards, ticket);
       }
-      else
+      if (cardInfo == null)
       {
-        Log.Write("Scheduler : no free card was found and scheduler is not allowed to stop other users LiveTV. ");
+        Log.Write("Scheduler : no free card was found and no card was found where user can be kicked.");
       }
-
       return cardInfo;
     }
 
@@ -1355,10 +1321,9 @@ namespace TvService
       return canKickAll;
     }   
 
-    private CardDetail HijackCardTimeshiftingOnSameTransponder(ICollection<CardDetail> availableCards, int recommendedCard, ICardTuneReservationTicket ticket)
+    private CardDetail HijackCardTimeshiftingOnSameTransponder(IEnumerable<CardDetail> availableCards, ICardTuneReservationTicket ticket)
     {
       CardDetail cardInfo = null;
-      availableCards = availableCards.OrderBy(t => t, new RecordingCardDetailComparer(recommendedCard)).ToList();
       foreach (CardDetail cardDetail in availableCards.Where(cardDetail => cardDetail.SameTransponder)) 
       {
         KickUserOnSameTransponder(cardDetail, ticket, ref cardInfo);
@@ -1623,35 +1588,7 @@ namespace TvService
         recording.Program.IsRecordingSeriesPending = false;
         recording.Program.Persist();
       }
-    }
-
-    private class RecordingCardDetailComparer : IComparer<CardDetail>
-    {
-      private readonly int _recommendedCard;
-
-      public RecordingCardDetailComparer(int recommendedCard)
-      {
-        _recommendedCard = recommendedCard;
-      }
-
-      public int Compare(CardDetail first, CardDetail second)
-      {
-        if (first == second)
-          return 0;
-
-        if (first.Id == _recommendedCard)
-        {
-          return -1;
-        }
-
-        if (second.Id == _recommendedCard)
-        {
-          return 1;
-        }
-        return first.CompareTo(second);
-      }
-
-    }
+    }   
 
     #endregion
   }

@@ -78,7 +78,6 @@ namespace TvDatabase
     [TableColumn("preRecordInterval", NotNull = true)] private int preRecordInterval;
     [TableColumn("postRecordInterval", NotNull = true)] private int postRecordInterval;
     [TableColumn("canceled", NotNull = true)] private DateTime canceled;
-    [TableColumn("recommendedCard", NotNull = true)] private int recommendedCard;
     [TableColumn("series", NotNull = true)] private bool series;
 
     #endregion
@@ -106,7 +105,6 @@ namespace TvDatabase
       ScheduleType = (int)ScheduleRecordingType.Once;
       Series = (scheduleType > 0);
       StartTime = startTime;
-      recommendedCard = -1;
     }
 
     /// <summary> 
@@ -134,7 +132,6 @@ namespace TvDatabase
       this.postRecordInterval = postRecordInterval;
       this.canceled = canceled;
       this.series = (scheduleType > 0);
-      recommendedCard = -1;
     }
 
     /// <summary> 
@@ -159,7 +156,6 @@ namespace TvDatabase
       postRecordInterval = schedule.postRecordInterval;
       canceled = schedule.canceled;
       series = schedule.Series;
-      recommendedCard = -1;
     }
 
     /// <summary> 
@@ -188,7 +184,6 @@ namespace TvDatabase
       this.postRecordInterval = postRecordInterval;
       this.canceled = canceled;
       this.series = (scheduleType > 0);
-      recommendedCard = -1;
     }
 
     #endregion
@@ -209,20 +204,7 @@ namespace TvDatabase
     public int IdSchedule
     {
       get { return idSchedule; }
-    }
-
-    /// <summary>
-    /// Property to get/set the card id recommended by ConflictsManager plugin
-    /// </summary>
-    public int RecommendedCard
-    {
-      get { return recommendedCard; }
-      set
-      {
-        isChanged |= recommendedCard != value;
-        recommendedCard = value;
-      }
-    }
+    }  
 
     /// <summary>
     /// Property relating to database column idChannel
