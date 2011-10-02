@@ -21,10 +21,11 @@
 #region Usings
 
 using System;
+using TvEngine.PowerScheduler.Interfaces;
 
 #endregion
 
-namespace TvEngine.PowerScheduler.Interfaces
+namespace Mediaportal.TV.Server.Plugins.PowerScheduler.Interfaces.Interfaces
 {
   /// <summary>
   /// EvenHandler delegate for PowerScheduler events
