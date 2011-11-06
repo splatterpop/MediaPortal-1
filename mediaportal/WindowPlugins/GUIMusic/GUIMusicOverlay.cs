@@ -390,6 +390,24 @@ namespace MediaPortal.GUI.Music
       }
     }
 
+    public override bool OnMessage(GUIMessage message)
+    {
+      switch (message.Message)
+      {
+        case GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED:
+          // Playlist has changed so update track details
+          var nextFilename = playlistPlayer.GetNext();
+          if (!string.IsNullOrEmpty(nextFilename))
+          {
+            var tag = GetTag(nextFilename);
+            SetNextSkinProperties(tag, nextFilename);
+          }
+
+          break;
+      }
+      return base.OnMessage(message);
+    } 
+
     private MusicTag GetTag(string fileName)
     {
       MusicTag tag = null;
