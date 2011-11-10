@@ -255,7 +255,7 @@ namespace MediaPortal.Playlists
         Monitor.Exit(this);
       }
 
-      var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, GetID, 0, 0, 0, 0, null);
+      var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, 0, 0, 0, 0, 0, null);
       GUIWindowManager.SendMessage(msg);
 
       return selectedItemIndex;
@@ -307,7 +307,7 @@ namespace MediaPortal.Playlists
         Monitor.Exit(this);
       }
 
-      var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, GetID, 0, 0, 0, 0, null);
+      var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, 0, 0, 0, 0, 0, null);
       GUIWindowManager.SendMessage(msg);
 
       return selectedItemIndex;
