@@ -139,6 +139,8 @@ namespace MediaPortal.GUI.Video
 
     private int _howToPlayAll = 3;
 
+    private int _watchedPercentage = 95;
+
     #endregion
 
     #region constructors
@@ -214,6 +216,7 @@ namespace MediaPortal.GUI.Video
         _fileMenuEnabled = xmlreader.GetValueAsBool("filemenu", "enabled", true);
         _fileMenuPinCode = Util.Utils.DecryptPin(xmlreader.GetValueAsString("filemenu", "pincode", string.Empty));
         _howToPlayAll = xmlreader.GetValueAsInt("movies", "playallinfolder", 3);
+        _watchedPercentage = xmlreader.GetValueAsInt("movies", "playedpercentagewatched", 95);
 
         _virtualDirectory = VirtualDirectories.Instance.Movies;
 
@@ -606,7 +609,9 @@ namespace MediaPortal.GUI.Video
             if (item.IsFolder)
               file = selectDvdHandler.GetFolderVideoFile(item.Path);
             // Check db for watched status for played movie or changed status in movie info window
-            item.IsPlayed = VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(file));
+            int percentWatched = 0;
+            item.IsPlayed = VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(file), ref percentWatched);
+            item.Label3 = percentWatched + "%";
           }
           //Do NOT add OnItemSelected event handler here, because its still there...
           facadeLayout.Add(item);
@@ -1389,13 +1394,15 @@ namespace MediaPortal.GUI.Video
       if (VideoDatabase.HasMovieInfo(movieFileName))
       {
         IMDBMovie movieDetails = new IMDBMovie();
-        int idMovie = VideoDatabase.GetMovieInfo(movieFileName, ref movieDetails);
+        //int idMovie = VideoDatabase.GetMovieInfo(movieFileName, ref movieDetails);
         movieDetails.Watched = 0;
         VideoDatabase.SetWatched(movieDetails);
       }
-      int idFile = VideoDatabase.GetFileId(movieFileName);
-      VideoDatabase.DeleteMovieStopTime(idFile);
-      VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), false);
+      //int idFile = VideoDatabase.GetFileId(movieFileName);
+      //VideoDatabase.DeleteMovieStopTime(idFile);
+      int iPercent = 0;
+      VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), ref iPercent);
+      VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), false, iPercent);
     }
 
     public bool CheckMovie(string movieFileName)
@@ -1511,7 +1518,7 @@ namespace MediaPortal.GUI.Video
       }
     }
 
-    private void SetMovieProperties(string path)
+    private void SetMovieProperties(string path, string filename)
     {
       bool isFile = false;
       if (Util.Utils.IsVideo(path))
@@ -1520,7 +1527,7 @@ namespace MediaPortal.GUI.Video
       if (path == "..")
       {
         info.Reset();
-        info.SetProperties(true);
+        info.SetProperties(true, string.Empty);
         return;
       }
       bool isDirectory = false;
@@ -1578,17 +1585,28 @@ namespace MediaPortal.GUI.Video
         if (isMultiMovieFolder || !isFile)
         {
           info.Reset();
-          info.SetProperties(true);
+          info.SetProperties(true, filename);
           return;
         }
-        info.SetProperties(false);
+        info.SetProperties(false, filename);
       }
-      catch (Exception) {}
+      catch (Exception) { }
     }
 
     private void item_OnItemSelected(GUIListItem item, GUIControl parent)
     {
-      SetMovieProperties(item.Path);
+      string filename = string.Empty;
+
+      if (item.Path != ".." && File.Exists(item.Path + @"\VIDEO_TS\VIDEO_TS.IFO"))
+      {
+        filename = item.Path + @"\VIDEO_TS\VIDEO_TS.IFO";
+      }
+      else
+      {
+        filename = item.Path;
+      }
+
+      SetMovieProperties(item.Path, filename);
       GUIFilmstripControl filmstrip = parent as GUIFilmstripControl;
       if (filmstrip != null)
       {
@@ -1818,7 +1836,7 @@ namespace MediaPortal.GUI.Video
         {
           VideoDatabase.SetMovieStopTimeAndResumeData(idFile, 0, null);
           watchedMovies.Add(strFilePath);
-          VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), true);
+          VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), true, 100);
         }
 
         else if ((filename.Trim().ToLower().Equals(strFilePath.Trim().ToLower())) && (timeMovieStopped > 0))
@@ -1830,11 +1848,25 @@ namespace MediaPortal.GUI.Video
           VideoDatabase.SetMovieStopTimeAndResumeData(idFile, timeMovieStopped, resumeData);
           Log.Debug("GUIVideoFiles: {0} store resume time", caller);
 
-          //Set file "watched" only if 80% or higher played time (share view)
-          if (playTimePercentage >= 80)
+          //Set file "watched" only if  user % value or higher played time (share view)
+          if (playTimePercentage >= _watchedPercentage)
           {
             watchedMovies.Add(strFilePath);
-            VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), true);
+            VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), true, playTimePercentage);
+          }
+          else
+          {
+            int iPercent = 0; // Not used, just needed for the watched status call
+            bool watched = VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), ref iPercent);
+            
+            if (!watched)
+            {
+              VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), false, playTimePercentage);
+            }
+            else // Update new percentage if already watched
+            {
+              VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(strFilePath), true, playTimePercentage);
+            }
           }
         }
         else
@@ -1847,7 +1879,7 @@ namespace MediaPortal.GUI.Video
         // Update db view watched status for played movie
         IMDBMovie movie = new IMDBMovie();
         VideoDatabase.GetMovieInfo(filename, ref movie);
-        if (!movie.IsEmpty && (playTimePercentage >= 80 || g_Player.IsDVDMenu)) //Flag movie "watched" status only if 80% or higher played time (database view)
+        if (!movie.IsEmpty && (playTimePercentage >= _watchedPercentage || g_Player.IsDVDMenu)) //Flag movie "watched" status only if user % value or higher played time (database view)
         {
           movie.Watched = 1;
           VideoDatabase.SetMovieInfoById(movie.ID, ref movie);
@@ -1896,7 +1928,15 @@ namespace MediaPortal.GUI.Video
       {
         return;
       }
-
+      
+      // Check if Player didn't play at all (some play error occured)
+      int cPos = (int)g_Player.Player.CurrentPosition;
+      int vDur = (int)g_Player.Player.Duration;
+      
+      if (cPos != vDur || cPos == 0)
+      {
+        return;
+      }
       // Handle all movie files from idMovie
       ArrayList movies = new ArrayList();
       HashSet<string> watchedMovies = new HashSet<string>();
@@ -1945,13 +1985,20 @@ namespace MediaPortal.GUI.Video
           playTimePercentage = 100;
         }
 
-        if (playTimePercentage >= 80)
+        IMDBMovie details = new IMDBMovie();
+        VideoDatabase.GetMovieInfoById(iidMovie, ref details);
+
+        if (playTimePercentage >= _watchedPercentage)
         {
-          IMDBMovie details = new IMDBMovie();
-          VideoDatabase.GetMovieInfoById(iidMovie, ref details);
           details.Watched = 1;
           VideoDatabase.SetWatched(details);
-          VideoDatabase.SetMovieWatchedStatus(iidMovie, true);
+          VideoDatabase.SetMovieWatchedStatus(iidMovie, true, playTimePercentage);
+        }
+        else
+        {
+          int percent = 0;
+          bool wStatus = VideoDatabase.GetmovieWatchedStatus(iidMovie, ref percent);
+          VideoDatabase.SetMovieWatchedStatus(iidMovie, wStatus, playTimePercentage);
         }
       }
     }

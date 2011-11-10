@@ -359,7 +359,8 @@ namespace MediaPortal.Video.Database
             // Save details to database
             //
             // Check movie table if there is an entry that new movie is already played as share
-            if (VideoDatabase.GetmovieWatchedStatus(_movieDetails.ID))
+            int percentage = 0;
+            if (VideoDatabase.GetmovieWatchedStatus(_movieDetails.ID, ref percentage))
             {
               _movieDetails.Watched = 1;
             }

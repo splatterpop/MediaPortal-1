@@ -296,7 +296,7 @@ namespace MediaPortal.Video.Database
       _mIWatched = 0;
     }
 
-    public void SetProperties(bool isFolder)
+    public void SetProperties(bool isFolder, string file)
     {
       // Title suffix for problem with covers and movie with the same name
       string strThumb = GetStrThumb();
@@ -329,6 +329,10 @@ namespace MediaPortal.Video.Database
         strValue = string.Empty;
       }
       GUIPropertyManager.SetProperty("#iswatched", strValue);
+      
+      int percent = 0;
+      VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(file), ref percent);
+      GUIPropertyManager.SetProperty("#watchedpercent", percent.ToString());
     }
 
     public void SetPlayProperties()

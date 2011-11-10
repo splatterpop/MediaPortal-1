@@ -68,8 +68,8 @@ namespace MediaPortal.Video.Database
     void SetMovieStopTimeAndResumeData(int iFileId, int stoptime, byte[] resumeData);
     int GetMovieDuration(int iFileId);
     void SetMovieDuration(int iFileId, int duration);
-    void SetMovieWatchedStatus(int iFileId, bool watched);
-    bool GetMovieWatchedStatus(int iFileId);
+    void SetMovieWatchedStatus(int iFileId, bool watched, int percent);
+    bool GetMovieWatchedStatus(int iFileId, ref int percent);
     void DeleteMovie(string strFilenameAndPath);
     int AddMovie(string strFilenameAndPath, bool bHassubtitles);
     void GetMovies(ref ArrayList movies);

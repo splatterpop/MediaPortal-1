@@ -562,7 +562,9 @@ namespace MediaPortal.GUI.Video
         item.DVDLabel = movie.DVDLabel;
         item.Rating = movie.Rating;
         item.IsPlayed = movie.Watched > 0 ? true : false;
-
+        int percent = 0;
+        VideoDatabase.GetmovieWatchedStatus(movie.ID, ref percent);
+        item.Label3 = percent + "%";
         item.OnItemSelected += new GUIListItem.ItemSelectedHandler(item_OnItemSelected);
 
         itemlist.Add(item);
@@ -576,7 +578,7 @@ namespace MediaPortal.GUI.Video
         IMDBMovie movie = item.AlbumInfoTag as IMDBMovie;
         movie = new IMDBMovie();
         item.AlbumInfoTag = movie;
-        movie.SetProperties(false);
+        movie.SetProperties(false, string.Empty);
         itemlist.Add(item);
       }
 
@@ -895,7 +897,18 @@ namespace MediaPortal.GUI.Video
       {
         movie = new IMDBMovie();
       }
-      movie.SetProperties(false);
+      ArrayList files = new ArrayList();
+      VideoDatabase.GetFiles(movie.ID, ref files);
+
+      if (files.Count > 0)
+      {
+        movie.SetProperties(false, (string)files[0]);
+      }
+      else
+      {
+        movie.SetProperties(false, string.Empty);
+      }
+
       if (movie.ID >= 0)
       {
         string coverArtImage;

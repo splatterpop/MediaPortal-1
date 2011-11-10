@@ -244,7 +244,7 @@ namespace MediaPortal.GUI.Video
             }
           }
         }
-          // If folder is DVD backup folder then take it for watched status
+        // If folder is DVD backup folder then take it for watched status
         else if (pItem.IsFolder && IsDvdDirectory(pItem.Path))
         {
           file = GetFolderVideoFile(pItem.Path);
@@ -278,15 +278,20 @@ namespace MediaPortal.GUI.Video
             strThumb = Util.Utils.GetCoverArt(Thumbs.MovieTitle, titleExt);
           }
           // Find watched status for videos
+          int percentWatched = 0;
+
           if (fileId >= 0 && markWatchedFiles)
           {
-            if (VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(file)))
+            if (VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(file), ref percentWatched))
+            {
               foundWatched = true;
+            }
           }
           // Set watched status for list item
-          if (!pItem.IsFolder || (IsDvdDirectory(pItem.Path) && foundWatched))
+          if (!pItem.IsFolder || (IsDvdDirectory(pItem.Path)))
           {
             pItem.IsPlayed = foundWatched;
+            pItem.Label3 = percentWatched + "%";
           }
 
           if (!Util.Utils.FileExistsInCache(strThumb) || string.IsNullOrEmpty(strThumb))

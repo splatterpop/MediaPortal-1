@@ -436,5 +436,46 @@
       <textcolor>FFFFFFFF</textcolor>
       <visible>facadeview.list + control.hasfocus(50)</visible>
     </control>
+		<!-- Watched percentage showcase-->
+		<control>
+      <description>backgroundPB</description>
+      <type>image</type>
+      <id>1</id>
+      <posX>77</posX>
+      <posY>442</posY>
+      <width>182</width>
+      <height>27</height>
+      <texture>osd_progress_background.png</texture>
+      <visible>facadeview.list + control.hasfocus(50)</visible>
+    </control>
+    <control>
+      <description>Progress Bar Watched%</description>
+      <type>progress</type>
+      <id>1</id>
+      <posX>80</posX>
+      <posY>446</posY>
+      <width>176</width>
+      <offset>0</offset>
+      <height>20</height>
+      <innerheight>20</innerheight>
+      <lefttexture>-</lefttexture>
+      <midtexture>osd_progress_mid.png</midtexture>
+      <righttexture>-</righttexture>
+      <label>#watchedpercent</label>
+      <visible>facadeview.list + control.hasfocus(50)</visible>
+    </control>
+		<control>
+      <description>Watched percent label</description>
+      <type>label</type>
+      <id>1</id>
+      <posX>150</posX>
+      <posY>456</posY>
+      <width>50</width>
+      <label>#watchedpercent%</label>
+      <font>font11</font>
+      <align>center</align>
+      <textcolor>FFFFFFFF</textcolor>
+      <visible>facadeview.list + control.hasfocus(50)</visible>
+    </control>
   </controls>
 </window>
