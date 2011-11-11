@@ -595,7 +595,7 @@ namespace MediaPortal.GUI.Video
       {
         itemlist = _cachedItems;
         SelectDVDHandler selectDvdHandler = new SelectDVDHandler();
-
+        
         foreach (GUIListItem item in itemlist)
         {
           if (watchedFiles != null && watchedFiles.Contains(item.Path))
@@ -1131,6 +1131,11 @@ namespace MediaPortal.GUI.Video
       {
         return;
       }
+      // Don't add web streams (e.g.: from Online videos)
+      if (strFile.StartsWith("http:"))
+      {
+        return;
+      }
 
       if (!VideoDatabase.HasMovieInfo(strFile))
       {
@@ -1384,25 +1389,44 @@ namespace MediaPortal.GUI.Video
       }
     }
 
-    private void SetMovieUnwatched(string movieFileName, bool isFolder)
+    private void SetMovieWatchStatus(string movieFileName, bool isFolder, bool watched)
     {
       SelectDVDHandler isDvdFolder = new SelectDVDHandler();
 
       if (isFolder && isDvdFolder.IsDvdDirectory(movieFileName))
         movieFileName = isDvdFolder.GetFolderVideoFile(movieFileName);
 
+      VideoDatabase.AddMovieFile(movieFileName);
+
       if (VideoDatabase.HasMovieInfo(movieFileName))
       {
         IMDBMovie movieDetails = new IMDBMovie();
-        //int idMovie = VideoDatabase.GetMovieInfo(movieFileName, ref movieDetails);
-        movieDetails.Watched = 0;
+        
+        if (!watched)
+        {
+          movieDetails.Watched = 0;
+        }
+        else
+        {
+          movieDetails.Watched = 1;
+        }
+        
         VideoDatabase.SetWatched(movieDetails);
       }
-      //int idFile = VideoDatabase.GetFileId(movieFileName);
-      //VideoDatabase.DeleteMovieStopTime(idFile);
+      
       int iPercent = 0;
-      VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), ref iPercent);
-      VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), false, iPercent);
+      
+      if (!watched)
+      {
+        VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), ref iPercent);
+        VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), false, iPercent);
+      }
+      else
+      {
+        iPercent = 100;
+        VideoDatabase.GetmovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), ref iPercent);
+        VideoDatabase.SetMovieWatchedStatus(VideoDatabase.GetMovieId(movieFileName), true, iPercent);
+      }
     }
 
     public bool CheckMovie(string movieFileName)
@@ -1929,14 +1953,6 @@ namespace MediaPortal.GUI.Video
         return;
       }
       
-      // Check if Player didn't play at all (some play error occured)
-      int cPos = (int)g_Player.Player.CurrentPosition;
-      int vDur = (int)g_Player.Player.Duration;
-      
-      if (cPos != vDur || cPos == 0)
-      {
-        return;
-      }
       // Handle all movie files from idMovie
       ArrayList movies = new ArrayList();
       HashSet<string> watchedMovies = new HashSet<string>();
@@ -2019,9 +2035,7 @@ namespace MediaPortal.GUI.Video
       }
     }
 
-    //
     // Play all files in selected directory
-    //
     private void OnPlayAll(string path)
     {
       // Get all video files in selected folder and it's subfolders
@@ -2211,6 +2225,10 @@ namespace MediaPortal.GUI.Video
                 {
                   dlg.AddLocalizedString(830); //Reset watched status for DVD folder
                 }
+                else
+                {
+                  dlg.AddLocalizedString(1260); // Set watched status
+                }
               }
               //
               dlg.AddLocalizedString(102); //Scan            
@@ -2233,6 +2251,10 @@ namespace MediaPortal.GUI.Video
             if (item.IsPlayed)
             {
               dlg.AddLocalizedString(830); //Reset watched status
+            }
+            else
+            {
+              dlg.AddLocalizedString(1260); // Set watched status
             }
 
             if (!IsFolderPinProtected(item.Path) && !item.IsRemote && _fileMenuEnabled)
@@ -2336,9 +2358,19 @@ namespace MediaPortal.GUI.Video
           break;
 
         case 830: // Reset watched status
-          SetMovieUnwatched(item.Path, item.IsFolder);
+          SetMovieWatchStatus(item.Path, item.IsFolder, false);
+          int selectedIndex = facadeLayout.SelectedListItemIndex;
           LoadDirectory(_currentFolder);
           UpdateButtonStates();
+          facadeLayout.SelectedListItemIndex = selectedIndex;
+          break;
+
+        case 1260: // Set watched status
+          SetMovieWatchStatus(item.Path, item.IsFolder, true);
+          selectedIndex = facadeLayout.SelectedListItemIndex;
+          LoadDirectory(_currentFolder);
+          UpdateButtonStates();
+          facadeLayout.SelectedListItemIndex = selectedIndex;
           break;
 
         case 500: // File menu
