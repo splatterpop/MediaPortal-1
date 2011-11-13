@@ -110,6 +110,7 @@ namespace MediaPortal.GUI.Music
 
     public override bool Init()
     {
+      GUIWindowManager.Receivers += new SendMessageHandler(this.OnThreadMessage);
       bool result = Load(GUIGraphicsContext.Skin + @"\musicOverlay.xml");
       GetID = (int)Window.WINDOW_MUSIC_OVERLAY;
       GUILayerManager.RegisterLayer(this, GUILayerManager.LayerType.MusicOverlay);
@@ -390,7 +391,7 @@ namespace MediaPortal.GUI.Music
       }
     }
 
-    public override bool OnMessage(GUIMessage message)
+    private void OnThreadMessage(GUIMessage message)
     {
       switch (message.Message)
       {
@@ -402,10 +403,13 @@ namespace MediaPortal.GUI.Music
             var tag = GetTag(nextFilename);
             SetNextSkinProperties(tag, nextFilename);
           }
+          else
+          {
+            SetNextSkinProperties(null, string.Empty);
+          }
 
           break;
       }
-      return base.OnMessage(message);
     } 
 
     private MusicTag GetTag(string fileName)
@@ -617,7 +621,9 @@ namespace MediaPortal.GUI.Music
         }
 
         // Duration
-        string strDuration = tag.Duration <= 0 ? string.Empty : tag.Duration.ToString();
+        string strDuration = tag.Duration <= 0
+                       ? string.Empty
+                       : MediaPortal.Util.Utils.SecondsToHMSString(tag.Duration);
 
         // Track
         string strNextTrack = tag.Track <= 0 ? string.Empty : tag.Track.ToString();
@@ -749,8 +755,9 @@ namespace MediaPortal.GUI.Music
 
       // Show Information of Next File in Playlist
       string nextFilename = playlistPlayer.GetNext();
-      if (nextFilename == string.Empty)
+      if (string.IsNullOrEmpty(nextFilename))
       {
+        SetNextSkinProperties(null, string.Empty);
         return;
       }
       tag = GetTag(nextFilename);
