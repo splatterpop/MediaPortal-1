@@ -83,7 +83,6 @@ namespace TvDatabase
       this.grabEPG = grabEPG;
       this.lastEpgGrab = lastEpgGrab;
       this.recordingFolder = recordingFolder;
-      this.idServer = idServer;
       this.enabled = enabled;
       this.camType = camType;
       this.timeshiftingFolder = timeshiftingFolder;
