@@ -94,6 +94,7 @@ namespace MediaPortal.GUI.Music
     {
       GetID = (int)Window.WINDOW_MUSIC_OVERLAY;
       playlistPlayer = PlayListPlayer.SingletonPlayer;
+      playlistPlayer.PlaylistChanged += OnPlaylistChanged;
       _useBassEngine = BassMusicPlayer.IsDefaultMusicPlayer;
       using (Profile.Settings xmlreader = new Profile.MPSettings())
       {
@@ -110,7 +111,6 @@ namespace MediaPortal.GUI.Music
 
     public override bool Init()
     {
-      GUIWindowManager.Receivers += new SendMessageHandler(this.OnThreadMessage);
       bool result = Load(GUIGraphicsContext.Skin + @"\musicOverlay.xml");
       GetID = (int)Window.WINDOW_MUSIC_OVERLAY;
       GUILayerManager.RegisterLayer(this, GUILayerManager.LayerType.MusicOverlay);
@@ -391,26 +391,20 @@ namespace MediaPortal.GUI.Music
       }
     }
 
-    private void OnThreadMessage(GUIMessage message)
+    private void OnPlaylistChanged(PlayListType playListType, PlayList playList)
     {
-      switch (message.Message)
+      //TODO need check for this being the active playlist
+      var nextFilename = playlistPlayer.GetNext();
+      if (!string.IsNullOrEmpty(nextFilename))
       {
-        case GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED:
-          // Playlist has changed so update track details
-          var nextFilename = playlistPlayer.GetNext();
-          if (!string.IsNullOrEmpty(nextFilename))
-          {
-            var tag = GetTag(nextFilename);
-            SetNextSkinProperties(tag, nextFilename);
-          }
-          else
-          {
-            SetNextSkinProperties(null, string.Empty);
-          }
-
-          break;
+        var tag = GetTag(nextFilename);
+        SetNextSkinProperties(tag, nextFilename);
       }
-    } 
+      else
+      {
+        SetNextSkinProperties(null, string.Empty);
+      }      
+    }
 
     private MusicTag GetTag(string fileName)
     {
