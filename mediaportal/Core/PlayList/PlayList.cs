@@ -256,7 +256,7 @@ namespace MediaPortal.Playlists
       }
 
       var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, 0, 0, 0, 0, 0, null);
-      GUIWindowManager.SendMessage(msg);
+      GUIWindowManager.SendThreadMessage(msg);
 
       return selectedItemIndex;
     }
@@ -308,7 +308,7 @@ namespace MediaPortal.Playlists
       }
 
       var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, 0, 0, 0, 0, 0, null);
-      GUIWindowManager.SendMessage(msg);
+      GUIWindowManager.SendThreadMessage(msg);
 
       return selectedItemIndex;
     }

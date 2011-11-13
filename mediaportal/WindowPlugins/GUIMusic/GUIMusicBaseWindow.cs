@@ -2111,7 +2111,7 @@ namespace MediaPortal.GUI.Music
         playlistPlayer.Play(iStartFrom);
 
         var msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_PLAYLIST_CHANGED, GetID, 0, 0, 0, 0, null);
-        GUIWindowManager.SendMessage(msg);
+        GUIWindowManager.SendThreadMessage(msg);
       }
 
       DoPlayNowJumpTo(pItems.Count);
