@@ -196,6 +196,7 @@ namespace MediaPortal.Configuration
       AddTabGeneral();
       AddTabGui();
       AddTabMovies();
+      AddTabBD();
       AddTabDvd();
       AddTabTelevision();
       AddTabMusic();
@@ -347,7 +348,7 @@ namespace MediaPortal.Configuration
             AddSection(new ConfigPage(filterSection, pdvdConfig, true));
           }
           // if we do not have the audio codec installed we want to see the video config nevertheless
-          if (filter.Contains("CyberLink Video Decoder (PDVD10)") || filter.Contains("CyberLink Video Decoder (PDVD11)"))
+          if (filter.Contains("CyberLink Video Decoder (PDVD10)"))
           {
             FiltersPowerDVDDecoder10 pdvdConfig10 = new FiltersPowerDVDDecoder10();
             AddSection(new ConfigPage(filterSection, pdvdConfig10, true));
@@ -521,6 +522,37 @@ namespace MediaPortal.Configuration
       AddSection(new ConfigPage(movie, new MovieViews(), true));
       Log.Info("  add video postprocessing section");
       AddSection(new ConfigPage(movie, new MoviePostProcessing(), true));
+    }
+
+    private void AddTabBD()
+    {
+      //add BD video section
+      Log.Info("add blu-ray section");
+      if (splashScreen != null)
+      {
+        splashScreen.SetInformation("Adding blu-ray section...");
+      }
+
+      SectionSettings bd = new BD();
+      AddSection(new ConfigPage(null, bd, false));
+
+      /*AddSection(new ConfigPage(null, movie, false));
+
+      Log.Info("  add video shares section");
+      AddSection(new ConfigPage(movie, new MovieShares(), false));
+      Log.Info("  add video database section");
+      MovieDatabase movieDbConfig = new MovieDatabase();
+      AddSection(new ConfigPage(movie, movieDbConfig, false));
+      Log.Info("  add video player section");
+      AddSection(new ConfigPage(movie, new MoviePlayer(), false));
+      Log.Info("  add video zoom section");
+      AddSection(new ConfigPage(movie, new MovieZoom(), false));
+      Log.Info("  add video extensions section");
+      AddSection(new ConfigPage(movie, new MovieExtensions(), true));
+      Log.Info("  add video views section");
+      AddSection(new ConfigPage(movie, new MovieViews(), true));*/
+      /*Log.Info("  add blu-ray postprocessing section");
+      AddSection(new ConfigPage(bd, new BDPostProcessing(), true));*/
     }
 
     private void AddTabDvd()
