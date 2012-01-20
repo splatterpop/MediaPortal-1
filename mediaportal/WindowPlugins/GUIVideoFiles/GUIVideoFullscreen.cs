@@ -1021,7 +1021,14 @@ namespace MediaPortal.GUI.Video
       _timeStatusShowTime = (DateTime.Now.Ticks / 10000);
       GUIMessage msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_LABEL_SET, GetID, 0,
                                       (int)Control.LABEL_ROW1, 0, 0, null);
+      try
+      {
       msg.Label = string.Format("{0} ms", SubEngine.GetInstance().Delay);
+      }
+      catch (Exception)
+      {
+          msg.Label = "0 ms";
+      }
       OnMessage(msg);
       Log.Info("GUIVideoFullscreen subtitles delay: {0}", msg.Label);
     }

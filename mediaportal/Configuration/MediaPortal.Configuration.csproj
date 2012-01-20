@@ -257,6 +257,10 @@
     <Compile Include="Sections\FiltersPowerDVDDecoder10.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Sections\GuiNLS.cs" />
+    <Compile Include="Sections\GuiNLS.designer.cs">
+      <DependentUpon>GuiNLS.cs</DependentUpon>
+    </Compile>
     <Compile Include="SettingsUpgradeManager.cs" />
     <Compile Include="HelpSystem.cs" />
     <Compile Include="ListViewSort.cs" />
@@ -612,6 +616,9 @@
     <Compile Include="WeatherChannel.cs">
       <SubType>Code</SubType>
     </Compile>
+    <EmbeddedResource Include="Sections\GuiNLS.resx">
+      <DependentUpon>GuiNLS.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\00_plugin_other.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\01_plugin_other_off.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\02_plugin_window.png" />

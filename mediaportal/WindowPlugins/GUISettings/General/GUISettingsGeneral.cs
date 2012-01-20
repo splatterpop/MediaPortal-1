@@ -167,10 +167,10 @@ namespace WindowPlugins.GUISettings
     {
       using (Settings xmlwriter = new MPSettings())
       {
-        xmlwriter.SetValueAsBool("general", "startfullscreen", btnFullscreen.Selected);
-        xmlwriter.SetValueAsBool("general", "IdleTimer", btnScreenSaver.Selected);
-        xmlwriter.SetValue("gui", "language", btnLanguage.Label);
-        xmlwriter.SetValue("skin", "name", btnSkin.Label);
+        if (btnFullscreen != null) xmlwriter.SetValueAsBool("general", "startfullscreen", btnFullscreen.Selected);
+        if (btnScreenSaver != null) xmlwriter.SetValueAsBool("general", "IdleTimer", btnScreenSaver.Selected);
+        if (btnLanguage != null) xmlwriter.SetValue("gui", "language", btnLanguage.Label);
+        if (btnSkin != null) xmlwriter.SetValue("skin", "name", btnSkin.Label);
       }
       Config.SkinName = btnSkin.Label;
     }
@@ -252,16 +252,16 @@ namespace WindowPlugins.GUISettings
 
     private void BackupButtons()
     {
-      selectedSkinName = btnSkin.Label;
-      selectedLangName = btnLanguage.Label;
-      selectedFullScreen = btnFullscreen.Selected;
-      selectedScreenSaver = btnScreenSaver.Selected;
+      if (btnSkin != null) selectedSkinName = btnSkin.Label;
+      if (btnLanguage != null) selectedLangName = btnLanguage.Label;
+      if (btnFullscreen != null) selectedFullScreen = btnFullscreen.Selected;
+      if (btnScreenSaver != null) selectedScreenSaver = btnScreenSaver.Selected;
     }
 
     private void RestoreButtons()
     {
-      btnSkin.Label = selectedSkinName;
-      btnLanguage.Label = selectedLangName;
+      if (selectedSkinName != null) btnSkin.Label = selectedSkinName;
+      if (selectedLangName != null) btnLanguage.Label = selectedLangName;
       if (selectedFullScreen)
       {
         GUIControl.SelectControl(GetID, btnFullscreen.GetID);

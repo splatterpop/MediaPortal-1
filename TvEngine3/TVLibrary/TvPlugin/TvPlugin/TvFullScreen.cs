@@ -902,7 +902,7 @@ namespace TvPlugin
           if (g_Player.IsTimeShifting)
           {
             Log.Debug("TVFullscreen: user request to stop");
-            GUIDialogPlayStop dlgPlayStop =
+/*            GUIDialogPlayStop dlgPlayStop =
               (GUIDialogPlayStop)GUIWindowManager.GetWindow((int)Window.WINDOW_DIALOG_PLAY_STOP);
             if (dlgPlayStop != null)
             {
@@ -916,7 +916,10 @@ namespace TvPlugin
                 Log.Debug("TVFullscreen: stop confirmed");
                 g_Player.Stop();
               }
-            }
+            }*/
+
+            g_Player.Stop();
+
           }
           break;
       }

@@ -130,7 +130,7 @@ namespace MediaPortal.GUI.Music
     private MapSettings _mapSettings = new MapSettings();
     private DirectoryHistory _dirHistory = new DirectoryHistory();
     private GUIListItem _selectedListItem = null;
-    private VirtualDirectory _virtualDirectory = new VirtualDirectory();
+    private VirtualDirectory _virtualDirectory = VirtualDirectories.Instance.Music; // new VirtualDirectory();
 
     private int _selectedAlbum = -1;
     private int _selectedItem = -1;
@@ -237,7 +237,7 @@ namespace MediaPortal.GUI.Music
         _fileMenuPinCode = Util.Utils.DecryptPin(xmlreader.GetValueAsString("filemenu", "pincode", string.Empty));
 
         string strDefault = xmlreader.GetValueAsString("music", "default", string.Empty);
-        _virtualDirectory.Clear();
+/*        _virtualDirectory.Clear();
         foreach (Share share in _shareList)
         {
           if (!string.IsNullOrEmpty(share.Name))
@@ -268,6 +268,7 @@ namespace MediaPortal.GUI.Music
             break;
           }
         }
+ */
         if (xmlreader.GetValueAsBool("music", "rememberlastfolder", false))
         {
           string lastFolder = xmlreader.GetValueAsString("music", "lastfolder", currentFolder);

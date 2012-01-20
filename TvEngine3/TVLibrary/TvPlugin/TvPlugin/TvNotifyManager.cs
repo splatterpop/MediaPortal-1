@@ -197,41 +197,91 @@ namespace TvPlugin
 
     private void ProcessNotifies(DateTime preNotifySecs)
     {
-      if (_notifiesListChanged)
-      {
-        LoadNotifies();
-        _notifiesListChanged = false;
-      }
-      if (_notifiesList != null && _notifiesList.Count > 0)
-      {
-        foreach (Program program in _notifiesList)
+        if (_notifiesListChanged)
         {
-          if (preNotifySecs > program.StartTime)
+          LoadNotifies();
+          _notifiesListChanged = false;
+        }
+        if (_notifiesList != null && _notifiesList.Count > 0)
+        {
+          foreach (Program program in _notifiesList)
           {
-            Log.Info("Notify {0} on {1} start {2}", program.Title, program.ReferencedChannel().DisplayName,
-                     program.StartTime);
-            program.Notify = false;
-            program.Persist();
-            TVProgramDescription tvProg = new TVProgramDescription();
-            tvProg.Channel = program.ReferencedChannel();
-            tvProg.Title = program.Title;
-            tvProg.Description = program.Description;
-            tvProg.Genre = program.Genre;
-            tvProg.StartTime = program.StartTime;
-            tvProg.EndTime = program.EndTime;
+            if (preNotifySecs > program.StartTime)
+            {
+              Log.Info("Notify {0} on {1} start {2}", program.Title, program.ReferencedChannel().DisplayName,
+                       program.StartTime);
+              program.Notify = false;
+              program.Persist();
+              TVProgramDescription tvProg = new TVProgramDescription();
+              tvProg.Channel = program.ReferencedChannel();
+              tvProg.Title = program.Title;
+              tvProg.Description = program.Description;
+              tvProg.Genre = program.Genre;
+              tvProg.StartTime = program.StartTime;
+              tvProg.EndTime = program.EndTime;
 
-            _notifiesList.Remove(program);
-            Log.Info("send notify");
-            GUIMessage msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_NOTIFY_TV_PROGRAM, 0, 0, 0, 0, 0, null);
-            msg.Object = tvProg;
-            GUIGraphicsContext.SendMessage(msg);
-            msg = null;
-            Log.Info("send notify done");
-            return;
+              _notifiesList.Remove(program);
+
+              int _notifyTVTimeout = 15;
+              bool _playNotifyBeep = true;
+              using (Settings xmlreader = new MPSettings())
+              {
+                  _notifyTVTimeout = xmlreader.GetValueAsInt("mytv", "notifyTVTimeout", 15);
+                  _playNotifyBeep = xmlreader.GetValueAsBool("mytv", "notifybeep", true);
+              }
+
+              GUIDialogYesNo dlgYesNo = (GUIDialogYesNo)GUIWindowManager.GetWindow((int)GUIWindow.Window.WINDOW_DIALOG_YES_NO);
+              dlgYesNo.Reset();
+              dlgYesNo.SetHeading("TV Notification");
+              if (tvProg.StartTime > DateTime.Now)
+              {
+                dlgYesNo.SetLine(1, tvProg.Title + " is about to start in " + (tvProg.StartTime - DateTime.Now).Minutes.ToString() + " minutes");
+              }
+              else
+              {
+                dlgYesNo.SetLine(1, tvProg.Title + " is now running for " + (DateTime.Now - tvProg.StartTime).Minutes.ToString() + " minutes");
+              }
+              dlgYesNo.SetLine(2, "Switch to " + tvProg.Channel.DisplayName + " now?");
+              dlgYesNo.TimeOut = _notifyTVTimeout;
+              dlgYesNo.SetDefaultToYes(false);
+              if (_playNotifyBeep)
+              {
+                  MediaPortal.Util.Utils.PlaySound("notify.wav", false, true);
+              }
+              dlgYesNo.DoModal(GUIWindowManager.ActiveWindow);
+
+              if (dlgYesNo.IsConfirmed)
+              {
+                try
+                {
+                  MediaPortal.Player.g_Player.Player.Stop();
+                }
+                catch 
+                {
+                }
+
+                Channel c = program.ReferencedChannel();
+
+                if (c.IsTv)
+                {
+                  MediaPortal.GUI.Library.GUIWindowManager.ActivateWindow((int)MediaPortal.GUI.Library.GUIWindow.Window.WINDOW_TV);
+                  TVHome.ViewChannelAndCheck(c);
+                  MediaPortal.Player.g_Player.ShowFullScreenWindow();
+                }
+
+                if (c.IsRadio)
+                {
+                  MediaPortal.GUI.Library.GUIWindowManager.ActivateWindow((int)MediaPortal.GUI.Library.GUIWindow.Window.WINDOW_RADIO);
+                  TVHome.ViewChannelAndCheck(c);
+                }
+              }
+              dlgYesNo.Reset();
+
+              return;
+            }
           }
         }
       }
-    }
 
     private void ProcessRecordings(DateTime preNotifySecs)
     {
@@ -395,7 +445,7 @@ namespace TvPlugin
         {
           return;
         }
-
+      
       
         DateTime preNotifySecs = DateTime.Now.AddSeconds(_preNotifyConfig);
         ProcessNotifies(preNotifySecs);

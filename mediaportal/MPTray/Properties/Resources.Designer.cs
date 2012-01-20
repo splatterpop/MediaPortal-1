@@ -66,5 +66,12 @@ namespace MPTray.Properties {
                 return ((System.Drawing.Icon)(obj));
             }
         }
+        
+        internal static System.Drawing.Icon MPTrayIconRec {
+            get {
+                object obj = ResourceManager.GetObject("MPTrayIconRec", resourceCulture);
+                return ((System.Drawing.Icon)(obj));
+            }
+        }
     }
 }

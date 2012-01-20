@@ -24,12 +24,15 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Timers;
+using System.Collections.Generic;
 using Microsoft.Win32;
 using TvControl;
 using TvDatabase;
 using TvEngine.PowerScheduler.Interfaces;
 using TvLibrary.Interfaces;
 using TvLibrary.Log;
+using TvService;
+using TvEngine.Events;
 
 namespace TvEngine
 {
@@ -42,6 +45,7 @@ namespace TvEngine
     private bool _isImporting = false;
     private const long _timerIntervall = 1800000;
     private const string _localMachineRegSubKey = @"Software\Ewe\TVGhost\Gemeinsames";
+    private TVController _tvController;
 
     private const string _virtualStoreRegSubKey32b =
       @"Software\Classes\VirtualStore\MACHINE\SOFTWARE\Ewe\TVGhost\Gemeinsames";
@@ -241,7 +245,14 @@ namespace TvEngine
             {
               // Updating a least a few programs should take more than 20 seconds
               if (updateDuration > 20)
+              {
+                Log.Debug("TVMovie: importing database");
                 _database.Import();
+                Log.Debug("TVMovie: clearing personal tv guide");
+                ClearPersonalTVGuideMap();
+                Log.Debug("TVMovie: creating ProgramUpdated event");
+                _tvController.Fire(this, new TvServerEventArgs(TvServerEventType.ProgramUpdated));
+              }
               else
                 Log.Info("TVMovie: Import skipped because there was no new data.");
             }
@@ -322,6 +333,15 @@ namespace TvEngine
       }
     }
 
+    private void ClearPersonalTVGuideMap()
+    {
+      IList<PersonalTVGuideMap> m = PersonalTVGuideMap.ListAll();
+      foreach (PersonalTVGuideMap item in m)
+      {
+        item.Remove();
+      }
+    }
+
     #endregion
 
     #region ITvServerPlugin Members
@@ -348,6 +368,7 @@ namespace TvEngine
 
     public void Start(IController controller)
     {
+      _tvController = new TVController();
       StartStopTimer(true);
     }
 

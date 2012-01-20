@@ -21,6 +21,8 @@
 using System;
 using System.Drawing;
 using MediaPortal.Player;
+using MediaPortal.Profile;
+using MediaPortal.Configuration;
 
 namespace MediaPortal.GUI.Library
 {
@@ -48,12 +50,22 @@ namespace MediaPortal.GUI.Library
     private Type m_eType = Type.Normal; // type of transformation used
     private float m_fPixelRatio = 1.0f; // pixelratio correction 
     private bool m_bUseNonLinearStretch = false; //AR uses non-linear stretch or not
+        private float nlsZoomY = 1.10f; //  0.083f;
+        private float nlsVertPos = 0.3f;
 
 
     /// <summary>
     /// Empty constructor
     /// </summary>
-    public Geometry() {}
+        public Geometry()
+        {
+            using (Settings xmlreader = new Settings(Config.GetFile(Config.Dir.Config, "MediaPortal.xml")))
+            {
+                nlsZoomY = (float)xmlreader.GetValueAsInt("nls", "zoom", 115) / 100.0f;
+                nlsVertPos = (float)xmlreader.GetValueAsInt("nls", "vertpos", 30) / 100.0f;
+            }
+
+        }
 
     /// <summary>
     /// property to get/set the width of the video/image

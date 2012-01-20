@@ -1776,6 +1776,13 @@ namespace TvPlugin
             }
           }
         }
+
+        // highlight currently running program
+        if (TVHome.Card.IdChannel == program.IdChannel && program.IsRunningAt(DateTime.Now))
+        {
+            img.TextColor1 = 0xffff8080;
+        }
+
       }
     }
 
@@ -1796,6 +1803,8 @@ namespace TvPlugin
     {
       int channelNum = 0;
       Channel channel = tvGuideChannel.channel;
+
+      IList<PersonalTVGuideMap> ptvgm = PersonalTVGuideMap.ListAll();
 
       if (!_byIndex)
       {
@@ -2374,6 +2383,25 @@ namespace TvPlugin
           else
             img.DoUpdate();
           iProgram++;
+
+
+            // color curently watching program in red
+            if (TVHome.Card.IdChannel == program.IdChannel && program.IsRunningAt(DateTime.Now))
+            {
+                img.TextColor1 = 0xffff8080;
+            }
+
+            // color personal tv guide in green
+            foreach (PersonalTVGuideMap m in ptvgm)
+            {
+                if (m.IdProgram == program.IdProgram)
+                {
+                img.TextColor1 = 0xff80ff80;
+                //img.TexutureIcon = "stargood.png";
+                break;
+                }
+            }
+
         }
         iPreviousEndXPos = iEndXPos;
       }

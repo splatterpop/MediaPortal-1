@@ -323,12 +323,24 @@ namespace MediaPortal.GUI.Video
             {
               ToggleButton((int)Controls.OSD_PLAY, false); // make sure play button is up (so it shows the play symbol)
             }
-            m_delayInterval = MediaPortal.Player.Subtitles.SubEngine.GetInstance().DelayInterval;
-            if (m_delayInterval > 0)
-              m_subtitleDelay = MediaPortal.Player.Subtitles.SubEngine.GetInstance().Delay / m_delayInterval;
-            m_delayIntervalAudio = PostProcessingEngine.GetInstance().AudioDelayInterval;
-            if (m_delayIntervalAudio > 0)
-              m_audioDelay = PostProcessingEngine.GetInstance().AudioDelay / m_delayIntervalAudio;
+            try
+            {
+                m_delayInterval = MediaPortal.Player.Subtitles.SubEngine.GetInstance().DelayInterval;
+                if (m_delayInterval > 0)
+                  m_subtitleDelay = MediaPortal.Player.Subtitles.SubEngine.GetInstance().Delay / m_delayInterval;
+            }
+            catch (Exception)
+            {
+            }
+            try
+            {
+                m_delayIntervalAudio = PostProcessingEngine.GetInstance().AudioDelayInterval;
+                if (m_delayIntervalAudio > 0)
+                  m_audioDelay = PostProcessingEngine.GetInstance().AudioDelay / m_delayIntervalAudio;
+            }
+            catch (Exception)
+            {
+            }
             return true;
           }
         case GUIMessage.MessageType.GUI_MSG_SETFOCUS:
@@ -1083,11 +1095,11 @@ namespace MediaPortal.GUI.Video
               if (pControl.FloatValue < m_audioDelay)
               { 
                   PostProcessingEngine.GetInstance().AudioDelayMinus();
-              }
+      }
               else if (pControl.FloatValue > m_audioDelay)
               { 
                   PostProcessingEngine.GetInstance().AudioDelayPlus();
-              }
+    }
               m_audioDelay = (int)pControl.FloatValue;
             }
           }

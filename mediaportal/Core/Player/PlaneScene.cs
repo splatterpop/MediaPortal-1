@@ -18,6 +18,8 @@
 
 #endregion
 
+#define NLS_PARABOLIC
+
 using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -28,6 +30,8 @@ using MediaPortal.Player.Subtitles;
 using Microsoft.DirectX;
 using Microsoft.DirectX.Direct3D;
 using Geometry = MediaPortal.GUI.Library.Geometry;
+using MediaPortal.Configuration;
+using MediaPortal.Profile;
 
 namespace MediaPortal.Player
 {
@@ -109,10 +113,14 @@ namespace MediaPortal.Player
                                             };
 
     //The horizontal percentage of the destination to fit each partition into (Should be symmetrical and sum up to 100.0)
-    private float[] nlsDestPartitioning = {
-                                            7.06f, 10.15f, 12.65f, 5.88f, 11.47f, 5.58f, 11.47f, 5.88f, 12.65f, 10.15f,
-                                            7.06f
-                                          };
+    private float[] nlsDestPartitioning = 
+    {7.06f, 10.15f, 12.65f, 5.88f, 11.47f,  5.58f,  11.47f, 5.88f, 12.65f, 10.15f, 7.06f};
+//    {8.00f, 7.05f, 6.225f, 5.40f, 4.575f,  37.5f,  4.575f, 5.40f, 6.225f, 7.05f, 8.00f};
+
+      public float nlsStretchX = 1.10f;
+      public float nlsCenterZone = 0.6f;
+      public float nlsZoom = 1.10f;
+      private bool nlsCalculated = false;
 
     #endregion
 
@@ -749,6 +757,111 @@ namespace MediaPortal.Player
 
         if (_useNonLinearStretch)
         {
+            if (nlsCalculated == false)
+            {
+                using (Settings xmlreader = new Settings(Config.GetFile(Config.Dir.Config, "MediaPortal.xml")))
+                {
+                    nlsCenterZone = (float)xmlreader.GetValueAsInt("nls", "center zone", 50) / 100.0f;
+                    nlsZoom = (float)xmlreader.GetValueAsInt("nls", "zoom", 115) / 100.0f;
+                    nlsStretchX = (float)xmlreader.GetValueAsInt("nls", "stretchx", 103) / 100.0f;
+                }
+
+                // number of partitions
+                int r = 10;
+
+                // re-allocate partitioning
+                nlsSourcePartitioning = new float[2 * r + 1];
+                nlsDestPartitioning = new float[2 * r + 1];
+
+                // free and re-allocate vertex buffers
+                for (int i = 0; i < _vertexBuffers.Length; i++)
+                {
+                    if (_vertexBuffers[i] != null)
+                    {
+                        _vertexBuffers[i].Dispose();
+                        _vertexBuffers[i] = null;
+                    }
+                }
+                _vertexBuffers = new VertexBuffer[2 * r + 1];
+                for (int i = 0; i < _vertexBuffers.Length; i++)
+                {
+                    _vertexBuffers[i] = new VertexBuffer(typeof(CustomVertex.TransformedColoredTextured),
+                                                        4,
+                                                        GUIGraphicsContext.DX9Device,
+                                                        0,
+                                                        CustomVertex.TransformedColoredTextured.Format,
+                                                        GUIGraphicsContext.GetTexturePoolType());
+                }
+
+#if NLS_LINEAR
+                //--------------------- linear growth -------------------------
+                float m = nlsCenterZone;
+                float b = nlsStretchX * nlsZoom;
+
+                // output frame to source frame ratio
+                float V = 4.0f / 3.0f;
+                
+                // source partitioning
+                float T = 100.0f * (1.0f - nlsCenterZone) / (2.0f * r);
+ 
+                float p = ( (V - m * b) / (1.0f - m) - b) * 2.0f / (r + 1.0f);
+
+                // center zone
+                nlsSourcePartitioning[r] = 100.0f * nlsCenterZone;
+                nlsDestPartitioning[r] = 100.0f * m * b / V;
+
+                // partition zones
+                for (int i = 1; i <= r; i++)
+                {
+                    nlsSourcePartitioning[r - i] = T;
+                    nlsSourcePartitioning[r + i] = nlsSourcePartitioning[r - i];
+                    nlsDestPartitioning[r - i] = (p * (float)i + b) * T / V ;
+                    nlsDestPartitioning[r + i] = nlsDestPartitioning[r - i];
+                }
+#endif
+
+#if NLS_PARABOLIC
+                //--------------------- parabolic growth -------------------------
+                float c = nlsCenterZone;
+                float sx = nlsStretchX * nlsZoom;
+                int z = 10;
+                float Y = (16.0f / 12.0f / sx - c) / 2;
+                float X = (1 - c) / 2;
+                float d = X / z;
+                float g = (Y / d - z) * 6 / z / (z + 1) / (2 * z + 1);
+                // output frame to source frame ratio
+                float V = 4.0f / 3.0f;
+
+                // center zone
+                nlsSourcePartitioning[r] = 100.0f * nlsCenterZone;
+                nlsDestPartitioning[r] = 100.0f * nlsCenterZone * sx / V; // necessary because dest partitions also sum up to 100%
+
+                // partition zones
+                for (int i = 1; i <= r; i++)
+                {
+                    nlsSourcePartitioning[r - i] = d * 100.0f;
+                    nlsSourcePartitioning[r + i] = nlsSourcePartitioning[r - i];
+                    nlsDestPartitioning[r - i] = d * (1 + g * i * i) / V * 100.0f * sx;
+                    nlsDestPartitioning[r + i] = nlsDestPartitioning[r - i];
+                }
+
+#endif
+
+#if DEBUG
+                float s1 = 0.0f, s2 = 0.0f;
+                float[] fRatios = new float[2*r +1];
+                for (int i = 0; i < nlsSourcePartitioning.Length; i++)
+                {
+                    s1 += nlsSourcePartitioning[i];
+                    s2 += nlsDestPartitioning[i];
+                    fRatios[i] = nlsDestPartitioning[i] / nlsSourcePartitioning[i] * V;
+                }
+#endif
+                
+
+                nlsCalculated = true;
+            }
+
           //draw/stretch each partition separately according to NLS table
 
           //top and bottom remain untouched.
@@ -761,6 +874,7 @@ namespace MediaPortal.Player
           float dstLeftFloat = _destinationRect.Left;
           int dstRight = dstLeft;
           float dstRightFloat = (float)dstLeft;
+
           for (int i = 0; i < nlsSourcePartitioning.Length; i++)
           {
             //this left is the previous right
@@ -770,11 +884,10 @@ namespace MediaPortal.Player
             dstLeftFloat = dstRightFloat;
 
             //calculate new right
-            srcRightFloat = srcLeftFloat + (int)(nlsSourcePartitioning[i] * (float)_sourceRect.Width / 100.0f);
-            dstRightFloat = dstLeftFloat + (int)(nlsDestPartitioning[i] * (float)_destinationRect.Width / 100.0f);
-            srcRight = (int)srcRightFloat;
-            dstRight = (int)dstRightFloat;
-
+            srcRightFloat = srcLeftFloat + (nlsSourcePartitioning[i] * (float)_sourceRect.Width / 100.0f);
+            dstRightFloat = dstLeftFloat + (nlsDestPartitioning[i] * (float)_destinationRect.Width / 100.0f);
+            srcRight = (int)(srcRightFloat + 0.5f);
+            dstRight = (int)(dstRightFloat + 0.5f);
 
             DrawTextureSegment(_vertexBuffers[i],
                                srcLeft,

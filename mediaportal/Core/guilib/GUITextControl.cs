@@ -715,6 +715,8 @@ namespace MediaPortal.GUI.Library
 
     private void SetText(string strText)
     {
+        if (this == null) return;
+
       if (strText == null)
       {
         return;

@@ -569,6 +569,9 @@ namespace MediaPortal.Configuration
       Log.Info("  add general startup resume section");
       AddSection(new ConfigPage(general, new GeneralStartupResume(), false));
 
+      Log.Info("  add gui NLS section");
+      AddSection(new ConfigPage(general, new GuiNLS(), true));
+
       // Removed because of various issues with DVD playback
       // AddSection(new ConfigPage(general, new GeneralCDSpeed(), true));
     }
