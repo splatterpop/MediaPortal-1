@@ -139,8 +139,10 @@ namespace MediaPortal.Player
             strFile = Util.DaemonTools.GetVirtualDrive() + @"\BDMV\index.bdmv";
 
             if (!File.Exists(strFile))
+            {
               return;
           }
+        }
         }
 
         if (strFile.ToLower().EndsWith(".ifo"))

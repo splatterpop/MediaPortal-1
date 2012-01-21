@@ -144,6 +144,11 @@ namespace MediaPortal.GUI.Video
     private static bool _useInternalDVDVideoPlayer = true;
     private static string _externalPlayerExtensions = string.Empty;
 
+    //Internal BDInternalMenu
+    private static bool _BDInternalMenu = true;
+    private static bool _AskForResume = false;
+
+
     #endregion
 
     #region constructors
@@ -230,6 +235,7 @@ namespace MediaPortal.GUI.Video
         _useInternalVideoPlayer = xmlreader.GetValueAsBool("movieplayer", "internal", true);
         _useInternalDVDVideoPlayer = xmlreader.GetValueAsBool("dvdplayer", "internal", true);
         _externalPlayerExtensions = xmlreader.GetValueAsString("movieplayer", "extensions", "");
+        _BDInternalMenu = xmlreader.GetValueAsBool("bdplayer", "useInternalBDMenu", true);        
 
         _virtualDirectory = VirtualDirectories.Instance.Movies;
 
@@ -1271,10 +1277,6 @@ namespace MediaPortal.GUI.Video
         {
           strFile = pItem.Path + @"\VIDEO_TS\VIDEO_TS.IFO";
         }
-        else if (File.Exists(pItem.Path + @"\BDMV\index.bdmv"))
-        {
-          strFile = pItem.Path + @"\BDMV\index.bdmv";
-        }
         strMovie = pItem.DVDLabel;
       }
       IMDBMovie movieDetails = new IMDBMovie();
@@ -1678,6 +1680,7 @@ namespace MediaPortal.GUI.Video
     public static void PlayMovieFromPlayList(bool askForResumeMovie, int iMovieIndex, bool requestPin)
     {
       string filename;
+      _AskForResume = true;
       
       if (iMovieIndex == -1)
       {
@@ -1714,6 +1717,11 @@ namespace MediaPortal.GUI.Video
         }
       }
 
+      // Check if it's BD
+      string BDExtension = System.IO.Path.GetExtension(filename);
+      if (BDExtension == ".bdmv" && _BDInternalMenu)
+        _AskForResume = false;
+
       int timeMovieStopped = 0;
       byte[] resumeData = null;
       
@@ -1736,7 +1744,7 @@ namespace MediaPortal.GUI.Video
           {
             title = movieDetails.Title;
           }
-          if (askForResumeMovie && !filename.EndsWith(@"\BDMV\index.bdmv"))
+            if (askForResumeMovie && _AskForResume)
           {
             GUIResumeDialog.Result result =
               GUIResumeDialog.ShowResumeDialog(title, timeMovieStopped,
@@ -2305,7 +2313,7 @@ namespace MediaPortal.GUI.Video
           }
           if (Util.Utils.IsDVD(item.Path))
           {
-            if (File.Exists(item.Path + @"\VIDEO_TS\VIDEO_TS.IFO") || File.Exists(item.Path + @"\BDMV\index.bdmv"))
+            if (File.Exists(item.Path + @"\VIDEO_TS\VIDEO_TS.IFO"))
             {
               dlg.AddLocalizedString(341); //play
             }
@@ -2916,7 +2924,7 @@ namespace MediaPortal.GUI.Video
                               ".utf", ".utf8", ".utf-8", ".sub", ".srt", ".smi", ".rt", ".txt", ".ssa", ".aqt", ".jss",
                               ".ass", ".idx", ".ifo"
                             };
-        if (!isDVD || path.ToUpper().IndexOf("BDMV") < 0)
+        if (!isDVD)
         {
           // check if movie has subtitles
           for (int i = 0; i < sub_exts.Length; i++)

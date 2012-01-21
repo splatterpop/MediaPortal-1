@@ -55,12 +55,6 @@ namespace MediaPortal.Configuration.Sections
     private MPGroupBox groupBox1;
     private MPLabel labelPlayAll;
     private MPCheckBox useBDInternalMenu;
-    private PictureBox pictureBoxRegions;
-    private NumericUpDown ParentalControlUpDown;
-    private Label label2;
-    private Label label1;
-    private ComboBox RegionCodeComboBox;
-    private CheckBox SubsEnabled;
     private List<LanguageInfo> ISOLanguagePairs = new List<LanguageInfo>();
 
     //private int 
@@ -82,10 +76,6 @@ namespace MediaPortal.Configuration.Sections
 
       Util.Utils.PopulateLanguagesToComboBox(defaultSubtitleLanguageComboBox, curCultureName);
       Util.Utils.PopulateLanguagesToComboBox(defaultAudioLanguageComboBox, curCultureName);
-      Util.Utils.PopulateLanguagesToComboBox(defaultSubtitleLanguageComboBox, curCultureName);
-      Util.Utils.PopulateLanguagesToComboBox(defaultAudioLanguageComboBox, curCultureName);
-      string[] regions = { "A", "B", "C" };
-      RegionCodeComboBox.Items.AddRange(regions);
     }
 
     public override void LoadSettings()
@@ -115,10 +105,6 @@ namespace MediaPortal.Configuration.Sections
           Log.Error("LoadSettings - failed to load default audio language, using {0} - {1} ", ci.EnglishName, ex);
           defaultAudioLanguageComboBox.SelectedItem = ci.EnglishName;
         }
-        
-        RegionCodeComboBox.SelectedItem = xmlreader.GetValueAsString("bdplayer", "regioncode", "B");
-        ParentalControlUpDown.Value = xmlreader.GetValueAsInt("bdplayer", "parentalcontrol", 99);
-        SubsEnabled.Checked = xmlreader.GetValueAsBool("bdplayer", "subtitlesenabled", true);
       }
     }
 
@@ -126,13 +112,10 @@ namespace MediaPortal.Configuration.Sections
     {
       using (Settings xmlwriter = new MPSettings())
       {
-        //Use Internel Menu
-        xmlwriter.SetValueAsBool("bdplayer", "useInternalBDMenu", useBDInternalMenu.Checked);
         xmlwriter.SetValue("bdplayer", "subtitlelanguage", defaultSubtitleLanguageComboBox.Text);
         xmlwriter.SetValue("bdplayer", "audiolanguage", defaultAudioLanguageComboBox.Text);
-        xmlwriter.SetValue("bdplayer", "regioncode", RegionCodeComboBox.SelectedItem);
-        xmlwriter.SetValue("bdplayer", "parentalcontrol", ParentalControlUpDown.Value.ToString());
-        xmlwriter.SetValueAsBool("bdplayer", "subtitlesenabled", SubsEnabled.Checked);
+        //Use Internel Menu
+        xmlwriter.SetValueAsBool("bdplayer", "useInternalBDMenu", useBDInternalMenu.Checked);
       }
       
     }
@@ -148,14 +131,6 @@ namespace MediaPortal.Configuration.Sections
       this.folderBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
       this.fontDialog = new System.Windows.Forms.FontDialog();
       this.tabControl1 = new MediaPortal.UserInterface.Controls.MPTabControl();
-      this.tabPage1 = new MediaPortal.UserInterface.Controls.MPTabPage();
-      this.groupBox1 = new MediaPortal.UserInterface.Controls.MPGroupBox();
-      this.ParentalControlUpDown = new System.Windows.Forms.NumericUpDown();
-      this.label2 = new System.Windows.Forms.Label();
-      this.label1 = new System.Windows.Forms.Label();
-      this.RegionCodeComboBox = new System.Windows.Forms.ComboBox();
-      this.pictureBoxRegions = new System.Windows.Forms.PictureBox();
-      this.labelPlayAll = new MediaPortal.UserInterface.Controls.MPLabel();
       this.useBDInternalMenu = new MediaPortal.UserInterface.Controls.MPCheckBox();
       this.mpTabPage1 = new MediaPortal.UserInterface.Controls.MPTabPage();
       this.mpGroupBox4 = new MediaPortal.UserInterface.Controls.MPGroupBox();
@@ -163,21 +138,21 @@ namespace MediaPortal.Configuration.Sections
       this.defaultAudioLanguageComboBox = new MediaPortal.UserInterface.Controls.MPComboBox();
       this.mpLabel8 = new MediaPortal.UserInterface.Controls.MPLabel();
       this.defaultSubtitleLanguageComboBox = new MediaPortal.UserInterface.Controls.MPComboBox();
-      this.SubsEnabled = new System.Windows.Forms.CheckBox();
+      this.groupBox1 = new MediaPortal.UserInterface.Controls.MPGroupBox();
+      this.labelPlayAll = new MediaPortal.UserInterface.Controls.MPLabel();
+      this.tabPage1 = new MediaPortal.UserInterface.Controls.MPTabPage();
       this.tabControl1.SuspendLayout();
-      this.tabPage1.SuspendLayout();
-      this.groupBox1.SuspendLayout();
-      ((System.ComponentModel.ISupportInitialize)(this.ParentalControlUpDown)).BeginInit();
-      ((System.ComponentModel.ISupportInitialize)(this.pictureBoxRegions)).BeginInit();
       this.mpTabPage1.SuspendLayout();
       this.mpGroupBox4.SuspendLayout();
+      this.groupBox1.SuspendLayout();
+      this.tabPage1.SuspendLayout();
       this.SuspendLayout();
       // 
       // tabControl1
       // 
-      this.tabControl1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+      this.tabControl1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                  | System.Windows.Forms.AnchorStyles.Left)
+                  | System.Windows.Forms.AnchorStyles.Right)));
       this.tabControl1.Controls.Add(this.tabPage1);
       this.tabControl1.Controls.Add(this.mpTabPage1);
       this.tabControl1.Location = new System.Drawing.Point(0, 0);
@@ -185,112 +160,6 @@ namespace MediaPortal.Configuration.Sections
       this.tabControl1.SelectedIndex = 0;
       this.tabControl1.Size = new System.Drawing.Size(472, 408);
       this.tabControl1.TabIndex = 0;
-      // 
-      // tabPage1
-      // 
-      this.tabPage1.Controls.Add(this.groupBox1);
-      this.tabPage1.Controls.Add(this.useBDInternalMenu);
-      this.tabPage1.Location = new System.Drawing.Point(4, 22);
-      this.tabPage1.Name = "tabPage1";
-      this.tabPage1.Size = new System.Drawing.Size(464, 382);
-      this.tabPage1.TabIndex = 0;
-      this.tabPage1.Text = "General";
-      this.tabPage1.UseVisualStyleBackColor = true;
-      // 
-      // groupBox1
-      // 
-      this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-      this.groupBox1.Controls.Add(this.ParentalControlUpDown);
-      this.groupBox1.Controls.Add(this.label2);
-      this.groupBox1.Controls.Add(this.label1);
-      this.groupBox1.Controls.Add(this.RegionCodeComboBox);
-      this.groupBox1.Controls.Add(this.pictureBoxRegions);
-      this.groupBox1.Controls.Add(this.labelPlayAll);
-      this.groupBox1.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
-      this.groupBox1.Location = new System.Drawing.Point(16, 16);
-      this.groupBox1.Name = "groupBox1";
-      this.groupBox1.Size = new System.Drawing.Size(432, 298);
-      this.groupBox1.TabIndex = 0;
-      this.groupBox1.TabStop = false;
-      this.groupBox1.Text = "Settings";
-      // 
-      // ParentalControlUpDown
-      // 
-      this.ParentalControlUpDown.Location = new System.Drawing.Point(249, 247);
-      this.ParentalControlUpDown.Maximum = new decimal(new int[] {
-            99,
-            0,
-            0,
-            0});
-      this.ParentalControlUpDown.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-      this.ParentalControlUpDown.Name = "ParentalControlUpDown";
-      this.ParentalControlUpDown.Size = new System.Drawing.Size(40, 20);
-      this.ParentalControlUpDown.TabIndex = 10;
-      this.ParentalControlUpDown.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
-      this.ParentalControlUpDown.Value = new decimal(new int[] {
-            99,
-            0,
-            0,
-            0});
-      // 
-      // label2
-      // 
-      this.label2.AutoSize = true;
-      this.label2.Location = new System.Drawing.Point(246, 227);
-      this.label2.Name = "label2";
-      this.label2.Size = new System.Drawing.Size(125, 13);
-      this.label2.TabIndex = 9;
-      this.label2.Text = "Parental control age limit:";
-      // 
-      // label1
-      // 
-      this.label1.AutoSize = true;
-      this.label1.Location = new System.Drawing.Point(25, 227);
-      this.label1.Name = "label1";
-      this.label1.Size = new System.Drawing.Size(101, 13);
-      this.label1.TabIndex = 8;
-      this.label1.Text = "Blu-ray region code:";
-      // 
-      // RegionCodeComboBox
-      // 
-      this.RegionCodeComboBox.FormattingEnabled = true;
-      this.RegionCodeComboBox.Location = new System.Drawing.Point(28, 246);
-      this.RegionCodeComboBox.Name = "RegionCodeComboBox";
-      this.RegionCodeComboBox.Size = new System.Drawing.Size(36, 21);
-      this.RegionCodeComboBox.TabIndex = 7;
-      // 
-      // pictureBoxRegions
-      // 
-      this.pictureBoxRegions.Image = global::MediaPortal.Configuration.Properties.Resources.blu_ray_regions;
-      this.pictureBoxRegions.Location = new System.Drawing.Point(28, 26);
-      this.pictureBoxRegions.Name = "pictureBoxRegions";
-      this.pictureBoxRegions.Size = new System.Drawing.Size(376, 185);
-      this.pictureBoxRegions.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-      this.pictureBoxRegions.TabIndex = 6;
-      this.pictureBoxRegions.TabStop = false;
-      // 
-      // labelPlayAll
-      // 
-      this.labelPlayAll.Location = new System.Drawing.Point(0, 0);
-      this.labelPlayAll.Name = "labelPlayAll";
-      this.labelPlayAll.Size = new System.Drawing.Size(100, 23);
-      this.labelPlayAll.TabIndex = 0;
-      // 
-      // useBDInternalMenu
-      // 
-      this.useBDInternalMenu.AutoSize = true;
-      this.useBDInternalMenu.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
-      this.useBDInternalMenu.Location = new System.Drawing.Point(19, 332);
-      this.useBDInternalMenu.Name = "useBDInternalMenu";
-      this.useBDInternalMenu.Size = new System.Drawing.Size(180, 17);
-      this.useBDInternalMenu.TabIndex = 6;
-      this.useBDInternalMenu.Text = "Use internal Blu-Ray menu player";
-      this.useBDInternalMenu.UseVisualStyleBackColor = true;
       // 
       // mpTabPage1
       // 
@@ -304,9 +173,8 @@ namespace MediaPortal.Configuration.Sections
       // 
       // mpGroupBox4
       // 
-      this.mpGroupBox4.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-      this.mpGroupBox4.Controls.Add(this.SubsEnabled);
+      this.mpGroupBox4.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                  | System.Windows.Forms.AnchorStyles.Right)));
       this.mpGroupBox4.Controls.Add(this.mpLabel7);
       this.mpGroupBox4.Controls.Add(this.defaultAudioLanguageComboBox);
       this.mpGroupBox4.Controls.Add(this.mpLabel8);
@@ -314,7 +182,7 @@ namespace MediaPortal.Configuration.Sections
       this.mpGroupBox4.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
       this.mpGroupBox4.Location = new System.Drawing.Point(14, 12);
       this.mpGroupBox4.Name = "mpGroupBox4";
-      this.mpGroupBox4.Size = new System.Drawing.Size(432, 127);
+      this.mpGroupBox4.Size = new System.Drawing.Size(432, 88);
       this.mpGroupBox4.TabIndex = 10;
       this.mpGroupBox4.TabStop = false;
       this.mpGroupBox4.Text = "Default Language";
@@ -329,8 +197,8 @@ namespace MediaPortal.Configuration.Sections
       // 
       // defaultAudioLanguageComboBox
       // 
-      this.defaultAudioLanguageComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+      this.defaultAudioLanguageComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                  | System.Windows.Forms.AnchorStyles.Right)));
       this.defaultAudioLanguageComboBox.BorderColor = System.Drawing.Color.Empty;
       this.defaultAudioLanguageComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
       this.defaultAudioLanguageComboBox.Location = new System.Drawing.Point(136, 51);
@@ -349,8 +217,8 @@ namespace MediaPortal.Configuration.Sections
       // 
       // defaultSubtitleLanguageComboBox
       // 
-      this.defaultSubtitleLanguageComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+      this.defaultSubtitleLanguageComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                  | System.Windows.Forms.AnchorStyles.Right)));
       this.defaultSubtitleLanguageComboBox.BorderColor = System.Drawing.Color.Empty;
       this.defaultSubtitleLanguageComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
       this.defaultSubtitleLanguageComboBox.Location = new System.Drawing.Point(136, 24);
@@ -359,15 +227,29 @@ namespace MediaPortal.Configuration.Sections
       this.defaultSubtitleLanguageComboBox.Sorted = true;
       this.defaultSubtitleLanguageComboBox.TabIndex = 7;
       // 
-      // SubsEnabled
+      // groupBox1
       // 
-      this.SubsEnabled.AutoSize = true;
-      this.SubsEnabled.Location = new System.Drawing.Point(16, 92);
-      this.SubsEnabled.Name = "SubsEnabled";
-      this.SubsEnabled.Size = new System.Drawing.Size(100, 17);
-      this.SubsEnabled.TabIndex = 9;
-      this.SubsEnabled.Text = "Enable subtitles";
-      this.SubsEnabled.UseVisualStyleBackColor = true;
+      this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                  | System.Windows.Forms.AnchorStyles.Right)));
+      this.groupBox1.Controls.Add(this.useBDInternalMenu);
+      this.groupBox1.Controls.Add(this.labelPlayAll);
+      this.groupBox1.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+      this.groupBox1.Location = new System.Drawing.Point(16, 16);
+      this.groupBox1.Name = "groupBox1";
+      this.groupBox1.Size = new System.Drawing.Size(432, 186);
+      this.groupBox1.TabIndex = 0;
+      this.groupBox1.TabStop = false;
+      this.groupBox1.Text = "Settings";
+      // 
+      // tabPage1
+      // 
+      this.tabPage1.Controls.Add(this.groupBox1);
+      this.tabPage1.Location = new System.Drawing.Point(4, 22);
+      this.tabPage1.Name = "tabPage1";
+      this.tabPage1.Size = new System.Drawing.Size(464, 382);
+      this.tabPage1.TabIndex = 0;
+      this.tabPage1.Text = "General";
+      this.tabPage1.UseVisualStyleBackColor = true;
       // 
       // BD
       // 
@@ -375,19 +257,25 @@ namespace MediaPortal.Configuration.Sections
       this.Name = "BD";
       this.Size = new System.Drawing.Size(472, 408);
       this.tabControl1.ResumeLayout(false);
-      this.tabPage1.ResumeLayout(false);
-      this.tabPage1.PerformLayout();
-      this.groupBox1.ResumeLayout(false);
-      this.groupBox1.PerformLayout();
-      ((System.ComponentModel.ISupportInitialize)(this.ParentalControlUpDown)).EndInit();
-      ((System.ComponentModel.ISupportInitialize)(this.pictureBoxRegions)).EndInit();
       this.mpTabPage1.ResumeLayout(false);
       this.mpGroupBox4.ResumeLayout(false);
-      this.mpGroupBox4.PerformLayout();
+      this.groupBox1.ResumeLayout(false);
+      this.groupBox1.PerformLayout();
+      this.tabPage1.ResumeLayout(false);
       this.ResumeLayout(false);
-
+      //
+      // useBDInternalMenu
+      // 
+      this.useBDInternalMenu.AutoSize = true;
+      this.useBDInternalMenu.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+      this.useBDInternalMenu.Location = new System.Drawing.Point(15, 26);
+      this.useBDInternalMenu.Name = "useBDInternalMenu";
+      this.useBDInternalMenu.Size = new System.Drawing.Size(151, 17);
+      this.useBDInternalMenu.TabIndex = 6;
+      this.useBDInternalMenu.Text = "Use internal Blu-Ray player";
+      this.useBDInternalMenu.UseVisualStyleBackColor = true;
     }
 
-    #endregion           
+    #endregion    
   }
 }
