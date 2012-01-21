@@ -120,6 +120,7 @@ namespace MediaPortal.GUI.Video
       //no disc in drive...
       GUIDialogOK dlgOk = (GUIDialogOK)GUIWindowManager.GetWindow((int)GUIWindow.Window.WINDOW_DIALOG_OK);
       dlgOk.SetHeading(1020); //information
+      Log.Error("SelectDVDHandler: ShowSelectDriveDialog - Plz Insert Disk");
       dlgOk.SetLine(1, 219); //no disc
       dlgOk.DoModal(parentId);
       Log.Info("SelectDVDHandler: did not find a movie");
@@ -203,6 +204,7 @@ namespace MediaPortal.GUI.Video
       //no disc in drive...
       GUIDialogOK dlgOk = (GUIDialogOK)GUIWindowManager.GetWindow((int)GUIWindow.Window.WINDOW_DIALOG_OK);
       dlgOk.SetHeading(3); //my videos
+      Log.Error("SelectDVDHandler: OnPlayDVD() Plz Insert Disk (ShowSelectDriveDialog)");
       dlgOk.SetLine(1, 219); //no disc
       dlgOk.DoModal(parentId);
       return false;
@@ -214,14 +216,25 @@ namespace MediaPortal.GUI.Video
       GUIListItem pItem;
       IMDBMovie movieDetails = new IMDBMovie();
 
+      ISelectBDHandler selectBdHandler;
+      if (GlobalServiceProvider.IsRegistered<ISelectBDHandler>())
+      {
+        selectBdHandler = GlobalServiceProvider.Get<ISelectBDHandler>();
+      }
+      else
+      {
+        selectBdHandler = new SelectBDHandler();
+        GlobalServiceProvider.Add<ISelectBDHandler>(selectBdHandler);
+      }
+
       for (int x = 0; x < items.Count; x++)
       {
         string strThumb = string.Empty;
         pItem = (GUIListItem)items[x];
         string file = string.Empty;
         bool isFolderPinProtected = (pItem.IsFolder && IsFolderPinProtected(pItem.Path));
-        // Skip DVD backup folder
-        if (pItem.IsFolder && !IsDvdDirectory(pItem.Path))
+        // Skip DVD & BD backup folder
+        if (pItem.IsFolder && !IsDvdDirectory(pItem.Path) && !selectBdHandler.IsBDDirectory(pItem.Path))
         {
           if (pItem.Label == "..")
           {
@@ -248,6 +261,12 @@ namespace MediaPortal.GUI.Video
         else if (pItem.IsFolder && IsDvdDirectory(pItem.Path))
         {
           file = GetFolderVideoFile(pItem.Path);
+        }
+        
+          // Check for BD folder
+        else if (pItem.IsFolder && selectBdHandler.IsBDDirectory(pItem.Path))
+        {
+          file = selectBdHandler.GetFolderVideoFile(pItem.Path);
         }
 
         else if (!pItem.IsFolder ||
@@ -284,7 +303,7 @@ namespace MediaPortal.GUI.Video
               foundWatched = true;
           }
           // Set watched status for list item
-          if (!pItem.IsFolder || (IsDvdDirectory(pItem.Path) && foundWatched))
+          if (!pItem.IsFolder || (IsDvdDirectory(pItem.Path) && foundWatched) || (selectBdHandler.IsBDDirectory(pItem.Path) && foundWatched))
           {
             pItem.IsPlayed = foundWatched;
           }
@@ -329,6 +348,9 @@ namespace MediaPortal.GUI.Video
 
     public string GetFolderVideoFile(string path)
     {
+      if (string.IsNullOrEmpty(path))
+        return string.Empty;
+
       // IFind first movie file in folder
       string strExtension = Path.GetExtension(path).ToLower();
       if (VirtualDirectory.IsImageFile(strExtension))
@@ -358,7 +380,12 @@ namespace MediaPortal.GUI.Video
             Log.Debug("GUIVideoFiles: DVD folder detected - {0}", strDirs[0]);
             return String.Format(@"{0}\VIDEO_TS.IFO", strDirs[0]);
           }
+          else
+          {
+            return string.Empty;
+          }
         }
+
         string[] strFiles = null;
         try
         {

@@ -2,17 +2,17 @@
 
 // Copyright (C) 2005-2011 Team MediaPortal
 // http://www.team-mediaportal.com
-// 
+//
 // MediaPortal is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
-// 
+//
 // MediaPortal is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with MediaPortal. If not, see <http://www.gnu.org/licenses/>.
 
@@ -22,10 +22,13 @@ using System;
 using System.IO;
 using MediaPortal.GUI.Library;
 using MediaPortal.Player;
+using MediaPortal.Services;
 using MediaPortal.Util;
 using MediaPortal.Video.Database;
 using MediaPortal.ExtensionMethods;
 using Action = MediaPortal.GUI.Library.Action;
+
+using System.Collections.Generic;
 
 namespace MediaPortal.GUI.Video
 {
@@ -38,15 +41,24 @@ namespace MediaPortal.GUI.Video
     private string _fileName = "";
     private string _program = "";
 
-    [SkinControl(0)] protected GUIImage _videoRectangle = null;
-    [SkinControl(1)] protected GUIVideoControl _videoWindow = null;
-    [SkinControl(2)] protected GUILabelControl _labelPlayTime = null;
-    [SkinControl(3)] protected GUIImage _imagePlayLogo = null;
-    [SkinControl(4)] protected GUIImage _imagePauseLogo = null;
-    [SkinControl(5)] protected GUIFadeLabel _labelInfo = null;
-    [SkinControl(6)] protected GUIImage _labelBigPlayTime = null;
-    [SkinControl(7)] protected GUIImage _imageFastForward = null;
-    [SkinControl(8)] protected GUIImage _imageRewind = null;
+    [SkinControl(0)]
+    protected GUIImage _videoRectangle = null;
+    [SkinControl(1)]
+    protected GUIVideoControl _videoWindow = null;
+    [SkinControl(2)]
+    protected GUILabelControl _labelPlayTime = null;
+    [SkinControl(3)]
+    protected GUIImage _imagePlayLogo = null;
+    [SkinControl(4)]
+    protected GUIImage _imagePauseLogo = null;
+    [SkinControl(5)]
+    protected GUIFadeLabel _labelInfo = null;
+    [SkinControl(6)]
+    protected GUIImage _labelBigPlayTime = null;
+    [SkinControl(7)]
+    protected GUIImage _imageFastForward = null;
+    [SkinControl(8)]
+    protected GUIImage _imageRewind = null;
 
     private string _thumbLogo = "";
     private bool _didRenderLastTime = false;
@@ -81,7 +93,7 @@ namespace MediaPortal.GUI.Video
       AllocResources();
     }
 
-    public override void Render(float timePassed) {}
+    public override void Render(float timePassed) { }
 
     private void OnUpdateState(bool render)
     {
@@ -223,7 +235,7 @@ namespace MediaPortal.GUI.Video
       }
 
       if (GUIGraphicsContext.Overlay == true && GUIGraphicsContext.Vmr9Active && GUIGraphicsContext.IsPlaying)
-        //&& GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
+      //&& GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
       {
         if (_videoWindow.Visible == false)
         {
@@ -232,7 +244,7 @@ namespace MediaPortal.GUI.Video
         return;
       }
       if (GUIGraphicsContext.Overlay == false && GUIGraphicsContext.Vmr9Active && GUIGraphicsContext.IsPlaying)
-        // && GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
+      // && GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
       {
         if (_videoWindow.Visible == true)
         {
@@ -245,13 +257,13 @@ namespace MediaPortal.GUI.Video
     /// <summary>
     /// Examines the current playing movie and fills in all the #tags for the skin.
     /// For movies it will look in the video database for any IMDB info
-    /// For record TV programs it will look in the TVDatabase for recording info 
+    /// For record TV programs it will look in the TVDatabase for recording info
     /// </summary>
     /// <param name="fileName">Filename of the current playing movie</param>
     /// <remarks>
     /// Function will fill in the following tags for TV programs
     /// #Play.Current.Title, #Play.Current.Plot, #Play.Current.PlotOutline #Play.Current.File, #Play.Current.Thumb, #Play.Current.Year, #Play.Current.Channel,
-    /// 
+    ///
     /// Function will fill in the following tags for movies
     /// #Play.Current.Title, #Play.Current.Plot, #Play.Current.PlotOutline #Play.Current.File, #Play.Current.Thumb, #Play.Current.Year
     /// #Play.Current.Director, #cast, #dvdlabel, #imdbnumber, #Play.Current.Plot, #Play.Current.PlotOutline, #rating, #tagline, #votes, #credits
@@ -298,11 +310,25 @@ namespace MediaPortal.GUI.Video
 
           // get the name by stripping the first part : c:\media\movies
           string strName = fileName;
-          int pos = fileName.LastIndexOfAny(new char[] {'\\', '/'});
+          int pos = fileName.LastIndexOfAny(new char[] { '\\', '/' });
           if (pos >= 0 && pos + 1 < fileName.Length - 1)
           {
             strName = fileName.Substring(pos + 1);
           }
+
+          // get the name when play DVD directly from Drive letter
+          List<GUIListItem> rootDrives = VirtualDirectories.Instance.Movies.GetRootExt();
+          for (int i = rootDrives.Count - 1; i >= 0; i--)
+          {
+            GUIListItem itemDVDroot = (GUIListItem)rootDrives[i];
+            string itemDVD = Path.GetPathRoot(itemDVDroot.Path);
+            itemDVD = Util.Utils.RemoveTrailingSlash(itemDVD);
+            if (itemDVD == strName && !String.IsNullOrEmpty(itemDVDroot.DVDLabel)) //cd or dvd drive
+            {
+              strName = itemDVDroot.DVDLabel;
+            }
+          }
+
           GUIPropertyManager.SetProperty("#Play.Current.Title", strName);
           GUIPropertyManager.SetProperty("#Play.Current.File", strName);
 
@@ -337,9 +363,26 @@ namespace MediaPortal.GUI.Video
 
       IMDBMovie movieDetails = new IMDBMovie();
       bool bMovieInfoFound = false;
+      
+      ISelectBDHandler selectBdHandler;
+      if (GlobalServiceProvider.IsRegistered<ISelectBDHandler>())
+      {
+        selectBdHandler = GlobalServiceProvider.Get<ISelectBDHandler>();
+      }
+      else
+      {
+        selectBdHandler = new SelectBDHandler();
+        GlobalServiceProvider.Add<ISelectBDHandler>(selectBdHandler);
+      }
 
       if (!g_Player.IsTVRecording)
       {
+        // Check if we play image file to search db with the proper filename
+        if (Util.Utils.IsISOImage(fileName))
+        {
+          fileName = DaemonTools.MountedIsoFile;
+        }
+
         if (VideoDatabase.HasMovieInfo(fileName))
         {
           VideoDatabase.GetMovieInfo(fileName, ref movieDetails);
@@ -372,6 +415,71 @@ namespace MediaPortal.GUI.Video
           item.Path = fileName;
           Util.Utils.SetThumbnails(ref item);
           GUIPropertyManager.SetProperty("#Play.Current.Thumb", item.ThumbnailImage);
+
+          // Image file check to set title for OSD (non db)
+          if (VirtualDirectory.IsImageFile(Path.GetExtension(fileName)))
+          {
+            string title = Util.Utils.GetFilename(fileName, true);
+            GUIPropertyManager.SetProperty("#Play.Current.Title", title);
+          }
+          else if (fileName.ToLower().Contains("index.bdmv")) // BD folder title check
+          {
+            string title = selectBdHandler.GetBDFolderName(fileName);
+            // get the name when play BD directly from Drive letter
+            if (String.IsNullOrEmpty(title))
+            {
+              List<GUIListItem> rootDrives = VirtualDirectories.Instance.Movies.GetRootExt();
+              title = Path.GetPathRoot(fileName);
+              title = Util.Utils.RemoveTrailingSlash(title);
+
+              for (int i = rootDrives.Count - 1; i >= 0; i--)
+              {
+                GUIListItem itemBDroot = (GUIListItem)rootDrives[i];
+                string itemBD = Path.GetPathRoot(itemBDroot.Path);
+                itemBD = Util.Utils.RemoveTrailingSlash(itemBD);
+                if (itemBD == title && !String.IsNullOrEmpty(itemBDroot.DVDLabel)) //cd or dvd drive
+                {
+                  title = itemBDroot.DVDLabel;
+                }
+              }
+            }
+            GUIPropertyManager.SetProperty("#Play.Current.Title", title);
+          }
+          else if (fileName.ToLower().Contains(".mpls")) // BD folder title check (playlist)
+          {
+            // Check if index.bdmv is in the VDB
+            int index = fileName.ToLower().LastIndexOf(@"\playlist");
+            string name = fileName.Remove(index);
+            name = name + @"\index.bdmv";
+            if (VideoDatabase.HasMovieInfo(name))
+            {
+              VideoDatabase.GetMovieInfo(name, ref movieDetails);
+              movieDetails.SetPlayProperties();
+            }
+            else
+            {
+              string title = selectBdHandler.GetBDFolderName(fileName);
+              // get the name when play BD directly from Drive letter
+              if (String.IsNullOrEmpty(title))
+              {
+                List<GUIListItem> rootDrives = VirtualDirectories.Instance.Movies.GetRootExt();
+                title = Path.GetPathRoot(fileName);
+                title = Util.Utils.RemoveTrailingSlash(title);
+
+                for (int i = rootDrives.Count - 1; i >= 0; i--)
+                {
+                  GUIListItem itemBDroot = (GUIListItem)rootDrives[i];
+                  string itemBD = Path.GetPathRoot(itemBDroot.Path);
+                  itemBD = Util.Utils.RemoveTrailingSlash(itemBD);
+                  if (itemBD == title && !String.IsNullOrEmpty(itemBDroot.DVDLabel)) //cd or dvd drive
+                  {
+                    title = itemBDroot.DVDLabel;
+                  }
+                }
+              }
+              GUIPropertyManager.SetProperty("#Play.Current.Title", title);
+            }
+          }
         }
       }
       else if (g_Player.IsTV && g_Player.IsTimeShifting)

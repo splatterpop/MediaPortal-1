@@ -343,7 +343,7 @@ namespace MediaPortal.Video.Database
               string path = _movieDetails.Path;
               string filename = _movieDetails.File;
 
-              if (filename.ToUpper() == "VIDEO_TS.IFO")
+              if (filename.ToUpper() == "VIDEO_TS.IFO" || filename.ToUpper() == "INDEX.BDMV")
               {
                 // Remove \VIDEO_TS from directory structure
                 string directoryDVD = path.Substring(0, path.LastIndexOf("\\"));
@@ -947,6 +947,13 @@ namespace MediaPortal.Video.Database
             currentMovie.DVDLabel = Path.GetFileName(dvdFolder);
             strMovieName = currentMovie.DVDLabel;
           }
+          else if (strFileName.ToUpper().IndexOf(@"\BDMV\INDEX.BDMV") >= 0)
+          {
+            // BD folder
+            string bdFolder = strFileName.Substring(0, strFileName.ToUpper().IndexOf(@"\BDMV\INDEX.BDMV"));
+            currentMovie.DVDLabel = Path.GetFileName(bdFolder);
+            strMovieName = currentMovie.DVDLabel;
+          }
           else
           {
             // Movie - Folder title and new ->remove CDx from name
@@ -1260,6 +1267,11 @@ namespace MediaPortal.Video.Database
               if (item.Path.ToLower().IndexOf("video_ts") >= 0)
               {
                 string strFile = String.Format(@"{0}\VIDEO_TS.IFO", item.Path);
+                availableFiles.Add(strFile);
+              }
+              else if (item.Path.ToLower().IndexOf("bdmv") >= 0)
+              {
+                string strFile = String.Format(@"{0}\index.bdmv", item.Path);
                 availableFiles.Add(strFile);
               }
               else

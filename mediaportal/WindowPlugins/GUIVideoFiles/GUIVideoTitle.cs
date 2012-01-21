@@ -320,13 +320,13 @@ namespace MediaPortal.GUI.Video
 
         if (files.Count > 1)
         {
-          GUIVideoFiles._stackedMovieFiles = files;
-          GUIVideoFiles._isStacked = true;
+          GUIVideoFiles.StackedMovieFiles = files;
+          GUIVideoFiles.IsStacked = true;
           GUIVideoFiles.MovieDuration(files);
         }
         else
         {
-          GUIVideoFiles._isStacked = false;
+          GUIVideoFiles.IsStacked = false;
         }
         GUIVideoFiles.PlayMovie(movie.ID, false);
       }

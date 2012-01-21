@@ -657,6 +657,21 @@ namespace MediaPortal.GUI.Video
       selectDVDHandler.OnPlayDVD(drive, GetID);
     }
 
+    protected void OnPlayBD(String drive, int parentId)
+    {
+      ISelectBDHandler selectBDHandler;
+      if (GlobalServiceProvider.IsRegistered<ISelectBDHandler>())
+      {
+        selectBDHandler = GlobalServiceProvider.Get<ISelectBDHandler>();
+      }
+      else
+      {
+        selectBDHandler = new SelectBDHandler();
+        GlobalServiceProvider.Add<ISelectBDHandler>(selectBDHandler);
+      }
+      selectBDHandler.OnPlayBD(drive, GetID);
+    }
+
     protected void OnPlayFiles(System.Collections.ArrayList filesList)
     {
       playlistPlayer.GetPlaylist(PlayListType.PLAYLIST_VIDEO_TEMP).Clear();

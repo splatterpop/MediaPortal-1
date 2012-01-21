@@ -24,6 +24,7 @@ using System.IO;
 using System.Globalization;
 using MediaPortal.GUI.Library;
 using MediaPortal.Profile;
+using MediaPortal.Util;
 
 #region API
 
@@ -109,8 +110,13 @@ namespace MediaPortal.Player
         return;
       }
 
-      if(strFile.StartsWith(Util.DaemonTools.GetVirtualDrive()))
+      // Check if video file is from image file
+      string vDrive = DaemonTools.GetVirtualDrive();
+      string bDrive = Path.GetPathRoot(strFile);
+
+      if (vDrive == Util.Utils.RemoveTrailingSlash(bDrive))
         isDVD = false;
+
       //currently mediainfo is only used for local video related material (if enabled)
       if ((!isVideo && !isDVD) || (isDVD && !_DVDenabled))
       {
@@ -133,10 +139,10 @@ namespace MediaPortal.Player
             strFile = Util.DaemonTools.GetVirtualDrive() + @"\BDMV\index.bdmv";
 
             if (!File.Exists(strFile))
-              return;            
+              return;
           }
         }
-        
+
         if (strFile.ToLower().EndsWith(".ifo"))
         {
           string path = Path.GetDirectoryName(strFile);
@@ -159,7 +165,7 @@ namespace MediaPortal.Player
         else if (strFile.ToLower().EndsWith(".bdmv"))
         {
           string path = Path.GetDirectoryName(strFile) + @"\STREAM";
-          strFile = GetLargestFileInDirectory(path, "*.m2ts");          
+          strFile = GetLargestFileInDirectory(path, "*.m2ts");
         }
 
         _mI.Open(strFile);

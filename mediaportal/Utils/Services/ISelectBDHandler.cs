@@ -18,20 +18,19 @@
 
 #endregion
 
-using System.Collections;
+using System;
 
 namespace MediaPortal.Services
 {
   /// <summary>
-  /// Interface for SelectDVDHandler class.
+  /// Interface for SelectBDHandler class.
   /// </summary>
-  public interface ISelectDVDHandler
+  public interface ISelectBDHandler
   {
-    string ShowSelectDVDDialog(int parentId);
-    string ShowSelectDriveDialog(int parentId, bool DVDonly);
-    bool OnPlayDVD(string drive, int parentId);
-    void SetIMDBThumbs(IList items, bool markWatchedFilesm, bool eachMovieHasDedicatedFolder);
+    bool IsBDDirectory(string path);
     string GetFolderVideoFile(string path);
-    bool IsDvdDirectory(string path);
+    bool OnPlayBD(String drive, int parentId);
+    string GetBDFolderName(string fileName);
+    bool IsBDPlayList(ref string filename);
   }
 }
