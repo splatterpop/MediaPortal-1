@@ -652,7 +652,28 @@ namespace MediaPortal.Player
             DaemonTools.UnMount();
           }
         }
+<<<<<<< HEAD
       }
+    }
+    
+    public static bool IsBDDirectory(string path)
+    {
+      if (File.Exists(path + @"\BDMV\index.bdmv"))
+      {
+        return true;
+      }
+      return false;
+    }
+
+    public static bool IsDvdDirectory(string path)
+    {
+      if (File.Exists(path + @"\VIDEO_TS\VIDEO_TS.IFO"))
+      {
+        return true;
+=======
+>>>>>>> remotes/origin/EXP-MyVideos_InternalPlayer_BluRaySupport
+      }
+      return false;
     }
     
     public static bool IsBDDirectory(string path)
