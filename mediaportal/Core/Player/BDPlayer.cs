@@ -389,7 +389,9 @@ namespace MediaPortal.Player
       BD_EVENT_POPUP,                  /* 0 - no, 1 - yes */
 
       /* Interactive menu visible */
-      BD_EVENT_MENU                   /* 0 - no, 1 - yes */
+      BD_EVENT_MENU,                   /* 0 - no, 1 - yes */
+
+      BD_CUSTOM_EVENT_MENU_VISIBILITY = 1000  /* 0 - not shown, 1 shown*/
     }
 
     protected enum BluRayStreamFormats
@@ -1785,7 +1787,8 @@ namespace MediaPortal.Player
           case (int)BDEvents.BD_EVENT_PLAYITEM:
             Log.Debug("BDPlayer: Playitem changed to {0}", bdevent.Param);
             CurrentStreamInfo();
-            UpdateMenuItems();
+            _bPopupMenuAvailable = false;
+            UpdateMenuItems();            
             break;
 
           case (int)BDEvents.BD_EVENT_TITLE:
@@ -1807,11 +1810,11 @@ namespace MediaPortal.Player
             break;          
 
           case (int)BDEvents.BD_EVENT_MENU:
-            Log.Debug("BDPlayer: Menu visible {0}", bdevent.Param);
+            Log.Debug("BDPlayer: Menu available {0}", bdevent.Param);
             if (bdevent.Param == 1)
             {
               if (menuState != MenuState.PopUp)
-                menuState = MenuState.Root;
+                menuState = MenuState.Root;              
              
               GUIGraphicsContext.DisableTopBar = true;
             }
