@@ -53,7 +53,8 @@ CAudioPin::CAudioPin(LPUNKNOWN pUnk, CBDReaderFilter* pFilter, HRESULT* phr, CCr
   m_bUsePCM(false),
   m_bFirstSample(true),
   m_bZeroTimeStream(false),
-  m_rtStreamTimeOffset(0)
+  m_rtStreamTimeOffset(0),
+  m_bClipEndingNotified(false)
 {
   m_bConnected = false;
   m_rtStart = 0;
@@ -267,8 +268,19 @@ HRESULT CAudioPin::FillBuffer(IMediaSample *pSample)
           Sleep(10);
         else 
         {
-          CreateEmptySample(pSample);
-          Sleep(10);
+          if (!m_bClipEndingNotified)
+          {
+            // Deliver end of stream notification to allow audio renderer to stop buffering.
+            // This should only happen when the stream enters into paused state
+            LogDebug("aud: FillBuffer - DeliverEndOfStream");
+            DeliverEndOfStream();
+            m_bClipEndingNotified = true;
+
+            CreateEmptySample(pSample);
+          }
+          else
+            Sleep(10);
+		  
           return S_OK;
         }
       }
@@ -288,12 +300,13 @@ HRESULT CAudioPin::FillBuffer(IMediaSample *pSample)
             m_bZeroTimeStream = true;
           }
 
-          if (buffer->bNewClip)
+          if ((buffer->nNewSegment & NS_NEW_CLIP) == NS_NEW_CLIP)
           {
-            LogDebug("aud: Playlist changed to %d - bNewClip: %d offset: %6.3f rtStart: %6.3f rtPlaylistTime: %6.3f", 
-              buffer->nPlaylist, buffer->bNewClip, buffer->rtOffset / 10000000.0, buffer->rtStart / 10000000.0, buffer->rtPlaylistTime / 10000000.0);
+            LogDebug("aud: Playlist changed to %d - nNewSegment: %d offset: %6.3f rtStart: %6.3f rtPlaylistTime: %6.3f", 
+              buffer->nPlaylist, buffer->nNewSegment, buffer->rtOffset / 10000000.0, buffer->rtStart / 10000000.0, buffer->rtPlaylistTime / 10000000.0);
 
             checkPlaybackState = true;
+            m_bClipEndingNotified = false;
 
             m_demux.m_eAudioClipSeen->Set();
           }
@@ -302,7 +315,7 @@ HRESULT CAudioPin::FillBuffer(IMediaSample *pSample)
           if (!m_bUsePCM && buffer->pmt && buffer->pmt->subtype == MEDIASUBTYPE_PCM)
             buffer->pmt->subtype = MEDIASUBTYPE_BD_LPCM_AUDIO;
 
-          if (buffer->pmt && m_mt != *buffer->pmt && !buffer->bNewClip)
+          if (buffer->pmt && m_mt != *buffer->pmt && !((buffer->nNewSegment & NS_NEW_CLIP)==NS_NEW_CLIP))
           {
             HRESULT hrAccept = S_FALSE;
             LogMediaType(buffer->pmt);
@@ -364,13 +377,13 @@ HRESULT CAudioPin::FillBuffer(IMediaSample *pSample)
           
           if (checkPlaybackState)
           {
-            if (buffer->pmt && m_mt != *buffer->pmt && !buffer->bNewClip)
+            if (buffer->pmt && m_mt != *buffer->pmt && !((buffer->nNewSegment & NS_NEW_CLIP)==NS_NEW_CLIP))
             {
               CMediaType mt(*buffer->pmt);
               SetMediaType(&mt);
             }
           }
-          m_pCachedBuffer->bNewClip = false;
+          m_pCachedBuffer->nNewSegment = 0;
 
           return S_OK;
         }
@@ -382,7 +395,7 @@ HRESULT CAudioPin::FillBuffer(IMediaSample *pSample)
 
         if (hasTimestamp && m_dRateSeeking == 1.0)
         {
-          if (m_bDiscontinuity)
+          if (m_bDiscontinuity || buffer->bDiscontinuity)
           {
             LogDebug("aud: set discontinuity");
             pSample->SetDiscontinuity(true);
@@ -595,6 +608,7 @@ HRESULT CAudioPin::OnThreadStartPlay()
     CAutoLock lock(CSourceSeeking::m_pLock);
     m_bDiscontinuity = true;
     m_bFirstSample = true;
+    m_bClipEndingNotified = false;
 
     if (m_demux.m_eAudioClipSeen)
       m_demux.m_eAudioClipSeen->Reset();

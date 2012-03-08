@@ -54,6 +54,7 @@ public:
 
   HRESULT    Start();
   void       Flush(bool pDiscardData, bool pSeeking, REFERENCE_TIME rtSeekTime);
+  HRESULT    FlushToChapter(UINT32 nChapter);
   Packet*    GetVideo();
   Packet*    GetAudio();
   Packet*    GetAudio(int playlist, int clip);
@@ -223,6 +224,7 @@ private:
   byte m_readBuffer[READ_SIZE];
 
   INT32 m_nClip;
+  INT32 m_nTitle;
   INT32 m_nPlaylist;
   INT32 m_nMPEG2LastClip;
   INT32 m_nMPEG2LastPlaylist;

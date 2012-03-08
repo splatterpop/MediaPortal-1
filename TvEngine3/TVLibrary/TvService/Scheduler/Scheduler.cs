@@ -527,10 +527,14 @@ namespace TvService
             {
               // Checking the record "title" itself to avoid unnecessary checks.
               // Furthermore some EPG sources could misuse the episode field for other, non-unique information
+
+              Log.Debug("Scheduler: checking pastReecording: {0} {1} {2} {3}", pastRecordings[i].Title, pastRecordings[i].EpisodeNum, pastRecordings[i].EpisodePart, pastRecordings[i].EpisodeName);
+
               if (CleanEpisodeTitle(pastRecordings[i].Title).Equals(ToRecordTitle,
                                                                     StringComparison.CurrentCultureIgnoreCase))
               {
-                //Log.Debug("Scheduler: Found recordings of schedule {0} - checking episodes...", ToRecordTitle);
+                
+                Log.Debug("Scheduler: Found recording of schedule {0} - checking episodes...", ToRecordTitle);
                 // The schedule which is about to be recorded is already found on our disk
                 switch (_preventDuplicateEpisodesKey)
                 {
@@ -542,6 +546,7 @@ namespace TvService
                     pastRecordEpisode = CleanEpisodeTitle(pastRecordings[i].EpisodeName);
                     break;
                 }
+
                 if (pastRecordEpisode.Equals(ToRecordEpisode, StringComparison.CurrentCultureIgnoreCase))
                 {
                   // How to handle "interrupted" recordings?

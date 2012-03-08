@@ -266,12 +266,6 @@
     <Compile Include="Sections\FiltersPowerDVDDecoder10.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Sections\GuiNLS.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Sections\GuiNLS.designer.cs">
-      <DependentUpon>GuiNLS.cs</DependentUpon>
-    </Compile>
     <Compile Include="SettingsUpgradeManager.cs" />
     <Compile Include="HelpSystem.cs" />
     <Compile Include="ListViewSort.cs" />
@@ -627,9 +621,7 @@
     <Compile Include="WeatherChannel.cs">
       <SubType>Code</SubType>
     </Compile>
-    <EmbeddedResource Include="Sections\GuiNLS.resx">
-      <DependentUpon>GuiNLS.cs</DependentUpon>
-    </EmbeddedResource>
+    <Content Include="Resources\blu-ray_regions.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\00_plugin_other.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\01_plugin_other_off.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\02_plugin_window.png" />
@@ -654,7 +646,6 @@
     <EmbeddedResource Include="Sections\Images\Plugins\imageListContextMenu\00_Enabled.png.bmp" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListContextMenu\01_Enabled_off.png.bmp" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListMPInstaller\00_application.ico.bmp" />
-    <Content Include="Resources\blu-ray_regions.png" />
     <EmbeddedResource Include="ConfigSplashScreen.resx">
       <DependentUpon>ConfigSplashScreen.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -670,18 +661,18 @@
       <SubType>Designer</SubType>
       <DependentUpon>BaseViews.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Sections\BD.resx">
+      <DependentUpon>BD.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Sections\BDCodec.resx">
+      <DependentUpon>BDCodec.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Sections\FiltersPowerDVDAudioDecoder.resx">
       <DependentUpon>FiltersPowerDVDAudioDecoder.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Sections\FiltersPowerDVDDecoder10.resx">
       <DependentUpon>FiltersPowerDVDDecoder10.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Sections\BD.resx">
-      <DependentUpon>BD.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Sections\BDCodec.resx">
-      <DependentUpon>BDCodec.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Sections\GeneralStartupResume.resx">
       <DependentUpon>GeneralStartupResume.cs</DependentUpon>

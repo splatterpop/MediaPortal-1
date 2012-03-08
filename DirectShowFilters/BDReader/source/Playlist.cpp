@@ -58,14 +58,12 @@ Packet* CPlaylist::ReturnNextAudioPacket()
   }
   else
   {
-    if (m_itCurrentAudioPlayBackClip++ == m_vecClips.end()) 
+    if (m_itCurrentAudioPlayBackClip - m_vecClips.begin() == m_vecClips.size() - 1) 
     {
-      m_itCurrentAudioPlayBackClip--;
       SetEmptiedAudio();
     }
     else
     {
-      m_itCurrentAudioPlayBackClip--;
       (*m_itCurrentAudioPlayBackClip)->Superceed(SUPERCEEDED_AUDIO_RETURN);
       m_itCurrentAudioPlayBackClip++;
       ret=ReturnNextAudioPacket();
@@ -101,14 +99,13 @@ Packet* CPlaylist::ReturnNextVideoPacket()
   }
   else
   {
-    if (m_itCurrentVideoPlayBackClip++ == m_vecClips.end()) 
+    if ((m_itCurrentVideoPlayBackClip+1) == m_vecClips.end()) 
     {
-      m_itCurrentVideoPlayBackClip--;
       SetEmptiedVideo();
     }
     else
     {
-      (*(m_itCurrentVideoPlayBackClip--))->Superceed(SUPERCEEDED_VIDEO_RETURN);
+      (*(m_itCurrentVideoPlayBackClip))->Superceed(SUPERCEEDED_VIDEO_RETURN);
       m_itCurrentVideoPlayBackClip++;
       ret=ReturnNextVideoPacket();
     }
@@ -168,7 +165,16 @@ bool CPlaylist::AcceptVideoPacket(Packet* packet)
   return ret;
 }
 
-bool CPlaylist::CreateNewClip(int clipNumber, REFERENCE_TIME clipStart, REFERENCE_TIME clipOffset, bool audioPresent, REFERENCE_TIME duration, REFERENCE_TIME playlistClipOffset)
+void CPlaylist::CurrentClipFilled()
+{
+  if (m_vecClips.size())
+  {
+    (*m_itCurrentAudioSubmissionClip)->Superceed(SUPERCEEDED_AUDIO_FILL);
+    (*m_itCurrentVideoSubmissionClip)->Superceed(SUPERCEEDED_VIDEO_FILL);
+  }
+}
+
+bool CPlaylist::CreateNewClip(int clipNumber, REFERENCE_TIME clipStart, REFERENCE_TIME clipOffset, bool audioPresent, REFERENCE_TIME duration, REFERENCE_TIME playlistClipOffset, bool seekTarget)
 {
   CAutoLock vectorLock(&m_sectionVector);
   bool ret = true;
@@ -181,7 +187,7 @@ bool CPlaylist::CreateNewClip(int clipNumber, REFERENCE_TIME clipStart, REFERENC
 
 
   if (m_vecClips.size()) PushClips();
-  m_vecClips.push_back(new CClip(clipNumber, nPlaylist, clipStart, clipOffset, playlistClipOffset, audioPresent, duration));
+  m_vecClips.push_back(new CClip(clipNumber, nPlaylist, clipStart, clipOffset, playlistClipOffset, audioPresent, duration, seekTarget));
   if (m_vecClips.size()==1)
   {
     // initialise

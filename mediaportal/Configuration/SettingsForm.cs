@@ -313,7 +313,7 @@ namespace MediaPortal.Configuration
           {
             FiltersWinDVD7Decoder windvdConfig = new FiltersWinDVD7Decoder();
             AddSection(new ConfigPage(filterSection, windvdConfig, true));
-          }
+          }          
           if (filter.Equals("DScaler Audio Decoder"))
           {
             FiltersDScalerAudio dscalerConfig = new FiltersDScalerAudio();
@@ -600,9 +600,6 @@ namespace MediaPortal.Configuration
       AddSection(new ConfigPage(general, new GeneralDynamicRefreshRate(), true));
       Log.Info("  add general startup resume section");
       AddSection(new ConfigPage(general, new GeneralStartupResume(), false));
-
-      Log.Info("  add gui NLS section");
-      AddSection(new ConfigPage(general, new GuiNLS(), true));
 
       // Removed because of various issues with DVD playback
       // AddSection(new ConfigPage(general, new GeneralCDSpeed(), true));

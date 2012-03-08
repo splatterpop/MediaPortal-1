@@ -92,6 +92,10 @@ CDeMultiplexer::CDeMultiplexer(CBDReaderFilter& filter) : m_filter(filter)
   m_videoServiceType = NO_STREAM;
   m_nVideoPid = -1;
 
+  m_nClip = -1;
+  m_nTitle = -1;
+  m_nPlaylist = -1;
+
   m_nMPEG2LastPlaylist = -1;
   m_nMPEG2LastClip = -1;
   m_nMPEG2LastTitleDuration = -1;
@@ -360,6 +364,40 @@ void CDeMultiplexer::FlushSubtitle()
     pDVBSubtitleFilter->NotifyChannelChange();*/
 }
 
+HRESULT CDeMultiplexer::FlushToChapter(UINT32 nChapter)
+{
+  LogDebug("demux:ChangingChapter");
+
+  HRESULT hr = S_FALSE;
+
+  SetHoldAudio(true);
+  SetHoldVideo(true);
+  SetHoldSubtitle(true);
+
+  // Make sure data isn't being processed
+  CAutoLock lockRead(&m_sectionRead);
+
+
+  CAutoLock lockVid(&m_sectionVideo);
+  CAutoLock lockAud(&m_sectionAudio);
+  CAutoLock lockSub(&m_sectionSubtitle);
+
+  m_playlistManager->ClearAllButCurrentClip();
+  hr = m_filter.lib.SetChapter(nChapter);
+  if (hr)
+  {
+    FlushPESBuffers(true);
+    FlushAudio();
+    FlushVideo();
+    FlushSubtitle();
+  }
+  SetHoldAudio(false);
+  SetHoldVideo(false);
+  SetHoldSubtitle(false);
+  return hr;
+}
+
+
 void CDeMultiplexer::Flush(bool pDiscardData, bool pSeeking, REFERENCE_TIME rtSeekTime)
 {
   LogDebug("demux:flushing");
@@ -417,8 +455,14 @@ Packet* CDeMultiplexer::GetVideo()
     if (m_filter.IsStopping() || m_bEndOfFile || ReadFromFile() <= 0)
       return NULL;
   }
+  Packet * ret = m_playlistManager->GetNextVideoPacket();
 
-  return m_playlistManager->GetNextVideoPacket();
+  if (ret && ret->bFakeData)
+  {
+    ReadFromFile();
+  }
+
+  return ret;
 }
 
 Packet* CDeMultiplexer::GetAudio(int playlist, int clip)
@@ -585,6 +629,7 @@ void CDeMultiplexer::HandleBDEvent(BD_EVENT& pEv, UINT64 /*pPos*/)
   switch (pEv.event)
   {
     case BD_EVENT_SEEK:
+      Flush(true, true, 0LL);
       break;
 
     case BD_EVENT_STILL_TIME:
@@ -597,15 +642,18 @@ void CDeMultiplexer::HandleBDEvent(BD_EVENT& pEv, UINT64 /*pPos*/)
       break;
 
     case BD_EVENT_TITLE:
+      m_nTitle = pEv.param;
       break;
 
     case BD_EVENT_PLAYLIST:
       m_nPlaylist = pEv.param;
-      m_iAudioIdx = -1;
       break;
 
     case BD_EVENT_AUDIO_STREAM:
-      m_iAudioIdx = pEv.param - 1;			
+      if(m_filter.lib.ForceTitleBasedPlayback() == false && pEv.param != 0xff)
+      {         
+        m_iAudioIdx = pEv.param - 1;			
+      }
       break;
 
     case BD_EVENT_PG_TEXTST_STREAM:
@@ -619,7 +667,7 @@ void CDeMultiplexer::HandleBDEvent(BD_EVENT& pEv, UINT64 /*pPos*/)
 
     case BD_EVENT_CHAPTER:
     {
-      BLURAY_TITLE_INFO* title = m_filter.lib.GetTitleInfo(m_nPlaylist);
+      BLURAY_TITLE_INFO* title = m_filter.lib.GetTitleInfo(m_nTitle);
       
       if (title)
       {
@@ -671,6 +719,7 @@ void CDeMultiplexer::HandleBDEvent(BD_EVENT& pEv, UINT64 /*pPos*/)
         {
           REFERENCE_TIME clipOffset = m_rtOffset * -1;
 
+          FlushPESBuffers(false);
           interrupted = m_playlistManager->CreateNewPlaylistClip(m_nPlaylist, m_nClip, AudioStreamsAvailable(clip), 
             CONVERT_90KHz_DS(clipIn), CONVERT_90KHz_DS(clipOffset), CONVERT_90KHz_DS(duration));
 
@@ -681,8 +730,6 @@ void CDeMultiplexer::HandleBDEvent(BD_EVENT& pEv, UINT64 /*pPos*/)
             REFERENCE_TIME rtClipStart = 0LL;
             Flush(true, true, rtClipStart);
           }
-          else
-            FlushPESBuffers(false);
         }
 
         m_bVideoFormatParsed = false;
@@ -893,6 +940,7 @@ void CDeMultiplexer::FillAudio(CTsHeader& header, byte* tsPacket)
 
 void CDeMultiplexer::FlushPESBuffers(bool pDiscardData)
 {
+  LogDebug("Demux::Flushing PES %d", pDiscardData);
   if (m_videoServiceType != NO_STREAM && !pDiscardData)
   {
     if (m_videoServiceType == BLURAY_STREAM_TYPE_VIDEO_MPEG1 ||
@@ -919,6 +967,9 @@ void CDeMultiplexer::FlushPESBuffers(bool pDiscardData)
   m_nMPEG2LastClip = -1;
   delete m_pCurrentAudioBuffer;
   m_pCurrentAudioBuffer = NULL;
+  if (!pDiscardData) 
+    m_playlistManager->CurrentClipFilled();
+
 }
 
 void CDeMultiplexer::FillVideo(CTsHeader& header, byte* tsPacket)
@@ -1712,6 +1763,7 @@ void CDeMultiplexer::ParseAudioStreams(BLURAY_CLIP_INFO* clip)
     }	
 		
     bd_player_settings& settings = m_filter.lib.GetBDPlayerSettings();
+    int iAudioIdx_tmp = 0;
     for (int i(0); i < clip->audio_stream_count; i++)
     {
       stAudioStream audio;
@@ -1724,16 +1776,22 @@ void CDeMultiplexer::ParseAudioStreams(BLURAY_CLIP_INFO* clip)
       audio.audioType = clip->audio_streams[i].coding_type;
       audio.pid = clip->audio_streams[i].pid;
 			
-      if (strncmp(audio.language, settings.audioLang, 3) == 0 && m_iAudioIdx < 0)
-        m_iAudioIdx = i;
-      
-      LogDebug("   Audio    [%4d] %s %s", audio.pid, audio.language, StreamFormatAsString(audio.audioType));				
+      if(m_filter.lib.ForceTitleBasedPlayback())
+      {
+        if (strncmp(audio.language, settings.audioLang, 3) == 0 && m_iAudioIdx < 0)
+        {        
+          iAudioIdx_tmp = i;
+          if (audio.audioType == settings.audioType)
+            m_iAudioIdx = i;
+        }
+      }
+      LogDebug("   Audio #%d:[%4d] %s %s", i, audio.pid, audio.language, StreamFormatAsString(audio.audioType));				
 
       m_audioStreams.push_back(audio);
     }
 		
     if (m_iAudioIdx < 0)
-      m_iAudioIdx = 0;
+      m_iAudioIdx = iAudioIdx_tmp;
 
     m_iAudioStream = m_iAudioIdx;
     m_AudioStreamType = clip->audio_streams[m_iAudioIdx].coding_type;

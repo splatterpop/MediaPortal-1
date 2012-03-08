@@ -24,6 +24,8 @@
 // For more details for memory leak detection see the alloctracing.h header
 #include "..\..\alloctracing.h"
 
+#define CLIP_DELAY 0LL
+
 extern void LogDebug(const char *fmt, ...);
 
 CPlaylistManager::CPlaylistManager(void)
@@ -70,6 +72,9 @@ bool CPlaylistManager::CreateNewPlaylistClip(int nPlaylist, int nClip, bool audi
 
   LogDebug("Playlist Manager new Playlist %d clip %d start %6.3f clipOffset %6.3f Audio %d duration %6.3f",nPlaylist, nClip, firstPacketTime/10000000.0, clipOffsetTime/10000000.0, audioPresent, duration/10000000.0);
 
+   //mark current playlist as filled
+  CurrentClipFilled();
+
   REFERENCE_TIME remainingClipTime = Incomplete();
   REFERENCE_TIME playedDuration = ClipPlayTime();
   bool ret = remainingClipTime>5000000LL;
@@ -82,7 +87,7 @@ bool CPlaylistManager::CreateNewPlaylistClip(int nPlaylist, int nClip, bool audi
   {
     //first playlist
     CPlaylist * firstPlaylist = new CPlaylist(nPlaylist,firstPacketTime);
-    firstPlaylist->CreateNewClip(nClip,firstPacketTime, clipOffsetTime, audioPresent, duration, m_rtPlaylistOffset);
+    firstPlaylist->CreateNewClip(nClip,firstPacketTime, clipOffsetTime, audioPresent, duration, m_rtPlaylistOffset, false);
 
     m_vecPlaylists.push_back(firstPlaylist);
     m_itCurrentAudioPlayBackPlaylist = m_itCurrentVideoPlayBackPlaylist = m_itCurrentAudioSubmissionPlaylist = m_itCurrentVideoSubmissionPlaylist = m_vecPlaylists.begin();
@@ -91,7 +96,7 @@ bool CPlaylistManager::CreateNewPlaylistClip(int nPlaylist, int nClip, bool audi
   {
     //new clip in existing playlist
     CPlaylist * existingPlaylist = m_vecPlaylists.back();
-    existingPlaylist->CreateNewClip(nClip,firstPacketTime, clipOffsetTime, audioPresent, duration, m_rtPlaylistOffset);
+    existingPlaylist->CreateNewClip(nClip,firstPacketTime, clipOffsetTime, audioPresent, duration, m_rtPlaylistOffset, playedDuration==0);
   }
   else
   {
@@ -110,12 +115,12 @@ bool CPlaylistManager::CreateNewPlaylistClip(int nPlaylist, int nClip, bool audi
     }
 
     CPlaylist * newPlaylist = new CPlaylist(nPlaylist,firstPacketTime);
-    newPlaylist->CreateNewClip(nClip,firstPacketTime, clipOffsetTime, audioPresent, duration, m_rtPlaylistOffset);
+    newPlaylist->CreateNewClip(nClip,firstPacketTime, clipOffsetTime, audioPresent, duration, m_rtPlaylistOffset, playedDuration==0);
     
     PushPlaylists();
     m_vecPlaylists.push_back(newPlaylist);
     PopPlaylists(0);
-    //mark current playlist as filled
+
     (*m_itCurrentAudioSubmissionPlaylist)->SetFilledAudio();
     (*m_itCurrentVideoSubmissionPlaylist)->SetFilledVideo();
 
@@ -123,6 +128,9 @@ bool CPlaylistManager::CreateNewPlaylistClip(int nPlaylist, int nClip, bool audi
     m_itCurrentAudioSubmissionPlaylist++;
     m_itCurrentVideoSubmissionPlaylist++;
   }
+
+  m_rtPlaylistOffset += CLIP_DELAY;
+
   return ret; // was current clip interrupted?
 }
 
@@ -190,10 +198,9 @@ Packet* CPlaylistManager::GetNextAudioPacket()
   Packet* ret=(*m_itCurrentAudioPlayBackPlaylist)->ReturnNextAudioPacket();
   if (!ret)
   {
-    if (m_itCurrentAudioPlayBackPlaylist++ == m_vecPlaylists.end()) m_itCurrentAudioPlayBackPlaylist--;
-    else 
+    if (m_itCurrentAudioPlayBackPlaylist - m_vecPlaylists.begin() != m_vecPlaylists.size() - 1) 
     {
-      (*(m_itCurrentAudioPlayBackPlaylist--))->SetEmptiedAudio();
+      (*(m_itCurrentAudioPlayBackPlaylist))->SetEmptiedAudio();
       ret = (*(m_itCurrentAudioPlayBackPlaylist++))->ReturnNextAudioPacket();
       //LogDebug("playlistManager: setting audio playback playlist to %d",(*m_itCurrentAudioPlayBackPlaylist)->nPlaylist);
     }
@@ -201,7 +208,7 @@ Packet* CPlaylistManager::GetNextAudioPacket()
   if (firstAudio)
   {
     firstAudio = false;
-    ret->bNewClip = false;
+    ret->nNewSegment = 0;
   }
   return ret;
 }
@@ -226,10 +233,9 @@ Packet* CPlaylistManager::GetNextVideoPacket()
   Packet* ret=(*m_itCurrentVideoPlayBackPlaylist)->ReturnNextVideoPacket();
   if (!ret)
   {
-    if (m_itCurrentVideoPlayBackPlaylist++ == m_vecPlaylists.end()) m_itCurrentVideoPlayBackPlaylist--;
-    else 
+    if (m_itCurrentVideoPlayBackPlaylist + 1 != m_vecPlaylists.end())
     {
-      (*(m_itCurrentVideoPlayBackPlaylist--))->SetEmptiedVideo();
+      (*(m_itCurrentVideoPlayBackPlaylist))->SetEmptiedVideo();
       ret = (*(m_itCurrentVideoPlayBackPlaylist++))->ReturnNextVideoPacket();
       //LogDebug("playlistManager: setting video playback playlist to %d",(*m_itCurrentVideoPlayBackPlaylist)->nPlaylist);
     }
@@ -237,7 +243,7 @@ Packet* CPlaylistManager::GetNextVideoPacket()
   if (firstVideo && ret->rtStart != Packet::INVALID_TIME)
   {
     firstVideo = false;
-    ret->bNewClip = false;
+    ret->nNewSegment = 0;
   }
   return ret;
 }
@@ -378,4 +384,12 @@ void CPlaylistManager::PopPlaylists(int difference)
   m_itCurrentVideoPlayBackPlaylist = m_vecPlaylists.begin() + (m_itCurrentVideoPlayBackPlaylistPos - difference);
   m_itCurrentAudioSubmissionPlaylist = m_vecPlaylists.begin() + (m_itCurrentAudioSubmissionPlaylistPos - difference);
   m_itCurrentVideoSubmissionPlaylist = m_vecPlaylists.begin() + (m_itCurrentVideoSubmissionPlaylistPos - difference);
+}
+
+void CPlaylistManager::CurrentClipFilled()
+{
+  if (m_vecPlaylists.size())
+  {
+    (*m_itCurrentVideoSubmissionPlaylist)->CurrentClipFilled();
+  }
 }

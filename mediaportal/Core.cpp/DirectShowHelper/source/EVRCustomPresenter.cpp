@@ -65,6 +65,7 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
   m_qScheduledSamples(NUM_SURFACES),
   m_bIsWin7(pIsWin7),
   m_bMsVideoCodec(true),
+  m_bNewSegment(true),
   m_pAVSyncClock(NULL),
   m_dBias(1.0),
   m_dMaxBias(1.1),
@@ -78,7 +79,8 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
   m_sumPhaseDiff(0.0),
   m_pOuterEVR(NULL),
   m_bEndBuffering(false),
-  m_state(MP_RENDER_STATE_SHUTDOWN)
+  m_state(MP_RENDER_STATE_SHUTDOWN),
+  m_streamDuration(0)
 {
   ZeroMemory((void*)&m_dPhaseDeviations, sizeof(double) * NUM_PHASE_DEVIATIONS);
 
@@ -89,11 +91,11 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
     LogRotate();
     if (NO_MP_AUD_REND)
     {
-      Log("---------- v1.4.55f BD mod ----------- instance 0x%x", this);
+      Log("---------- v1.4.56 BD mod ----------- instance 0x%x", this);
     }
     else
     {
-      Log("---------- v0.0.55f BD mod ----------- instance 0x%x", this);
+      Log("---------- v0.0.56 BD mod ----------- instance 0x%x", this);
       Log("--- audio renderer testing --- instance 0x%x", this);
     }
     m_hMonitor = monitor;
@@ -130,7 +132,7 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
     memset(m_pllRasterSyncOffset, 0, sizeof(m_pllRasterSyncOffset));
 
     m_nNextSyncOffset       = 0;
-    m_fJitterStdDev          = 0.0;
+    m_fJitterStdDev         = 0.0;
     m_fSyncOffsetStdDev     = 0.0;
     m_fSyncOffsetAvr        = 0.0;
     m_dD3DRefreshRate       = 0.0;
@@ -153,8 +155,8 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
     m_DetFrameTimeAve                     = -1.0;
     m_DetectedLock                        = false;
     m_DetectedFrameTimeStdDev             = 0;
-    m_LastEndOfPaintScanline       = 0;
-    m_LastStartOfPaintScanline     = 0;
+    m_LastEndOfPaintScanline      = 0;
+    m_LastStartOfPaintScanline    = 0;
     m_frameRateRatio              = 0;
     m_rawFRRatio                  = 0;
     m_maxScanLine                 = 0;
@@ -178,7 +180,6 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
 
   HRESULT result;
   m_pOuterEVR = new COuterEVR(NAME("COuterEVR"), (IUnknown*)(INonDelegatingUnknown*)this, result, this);
-
   if (FAILED(result))
   {	
     Log("Failed to create OuterEVR!");
@@ -186,6 +187,7 @@ MPEVRCustomPresenter::MPEVRCustomPresenter(IVMR9Callback* pCallback, IDirect3DDe
   else
   {
     (*EVRFilter) = m_EVRFilter = static_cast<IBaseFilter*>(m_pOuterEVR);
+    m_EVRFilter->QueryInterface(&m_pMediaSeeking);
   }
   
   m_pStatsRenderer = new StatsRenderer(this, m_pD3DDev);
@@ -228,8 +230,16 @@ void MPEVRCustomPresenter::ReleaseCallback()
   CAutoLock sLock(&m_lockCallback);
   m_pCallback = NULL;
 
+  if (m_pAVSyncClock)
+    SAFE_RELEASE(m_pAVSyncClock);
+
+  if (m_pMediaSeeking)
+    m_pMediaSeeking.Release();
+
   if (m_pOuterEVR)
     m_pOuterEVR->Release();
+
+  StopWorkers();
 }
 
 MPEVRCustomPresenter::~MPEVRCustomPresenter()
@@ -240,10 +250,7 @@ MPEVRCustomPresenter::~MPEVRCustomPresenter()
   {
     m_pCallback->PresentImage(0, 0, 0, 0, 0, 0);
   }
-  if (m_pAVSyncClock)
-  {
-    SAFE_RELEASE(m_pAVSyncClock);
-  }
+
   StopWorkers();
 //  DwmEnableMMCSSOnOff(false);
   ReleaseSurfaces();
@@ -648,7 +655,10 @@ HRESULT MPEVRCustomPresenter::GetTimeToSchedule(IMFSample* pSample, LONGLONG *ph
     Log("dangerous and unlikely time to schedule [%p]: %I64d. scheduled time: %I64d, now: %I64d",
       pSample, hnsDelta, hnsPresentationTime, hnsTimeNow);
   }
-  LOG_TRACE("Due: %I64d, Calculated delta: %I64d (rate: %f)", hnsPresentationTime, hnsDelta, m_fRate);
+  
+  LONGLONG sampleTime;
+  pSample->GetSampleTime(&sampleTime);
+  LOG_TRACE("Due: %I64d, Calculated delta: %I64d sample time: %I64d now %I64d (rate: %f)", hnsPresentationTime, hnsDelta, sampleTime, hnsTimeNow, m_fRate);
 
 //  if (m_fRate != 1.0f && m_fRate != 0.0f)
 //  {
@@ -1118,7 +1128,7 @@ HRESULT MPEVRCustomPresenter::GetFreeSample(IMFSample** ppSample)
 void MPEVRCustomPresenter::Flush(BOOL forced)
 {
   m_bFlushDone.Reset();
-  m_bFlush = TRUE;
+  m_bFlush = true;
   m_bFlushDone.Wait();
 }
 
@@ -1146,7 +1156,9 @@ void MPEVRCustomPresenter::DoFlush(BOOL forced)
   }
   
   m_bFlushDone.Set();
-  m_bFlush = FALSE;
+  m_bFlush = false;
+  LOG_TRACE("pre buffering on 1");
+  m_bDoPreBuffering = true;
 }
 
 
@@ -1276,7 +1288,7 @@ HRESULT MPEVRCustomPresenter::CheckForScheduledSample(LONGLONG *pTargetTime, LON
     else
     {
       m_bFlushDone.Set();
-      m_bFlush = FALSE;
+      m_bFlush = false;
     }
   }
 
@@ -1858,7 +1870,7 @@ HRESULT MPEVRCustomPresenter::ProcessInputNotify(int* samplesProcessed, bool set
 
   LOG_TRACE("ProcessInputNotify");
   hr = S_OK;
-  *samplesProcessed = 0;
+  (*samplesProcessed) = 0;
   
   if (!m_bFirstInputNotify)
   {
@@ -1913,11 +1925,24 @@ HRESULT MPEVRCustomPresenter::ProcessInputNotify(int* samplesProcessed, bool set
 
     if (SUCCEEDED(hr))
     {
+      m_bNewSegment = false;
       LONGLONG sampleTime;
       LONGLONG timeAfterMixer;
       sample->GetSampleTime(&sampleTime);
+      LOG_TRACE("time now: %I64d, sample time: %I64d", systemTime, sampleTime);
+      if (m_pMediaSeeking && m_bDoPreBuffering)
+      {
+        LONGLONG sampleDuration;
+        sample->GetSampleDuration(&sampleDuration);
 
-      *samplesProcessed++;
+        if (sampleTime + sampleDuration >= m_streamDuration)
+        {
+          LOG_TRACE("pre buffering off 1");
+          m_bDoPreBuffering = false;
+        }
+      }
+
+      (*samplesProcessed)++;
 
       m_pClock->GetCorrelatedTime(0, &timeAfterMixer, &systemTime);
       CalculatePresClockDelta(timeAfterMixer, systemTime);
@@ -1940,9 +1965,14 @@ HRESULT MPEVRCustomPresenter::ProcessInputNotify(int* samplesProcessed, bool set
       case MF_E_TRANSFORM_NEED_MORE_INPUT:
         // we are done for now
         hr = S_OK;
-        bhasMoreSamples = false;
-        LOG_TRACE("Need more input...");
-        CheckForEndOfStream();
+        if (!m_bNewSegment)
+        {
+          bhasMoreSamples = false;
+          LOG_TRACE("pre buffering off 2");
+          m_bDoPreBuffering = false;
+          LOG_TRACE("Need more input...");
+          CheckForEndOfStream();
+        }
       break;
 
       case MF_E_TRANSFORM_STREAM_CHANGE:
@@ -2092,7 +2122,10 @@ HRESULT STDMETHODCALLTYPE MPEVRCustomPresenter::OnClockStart(MFTIME hnsSystemTim
     return hr;
   }
 
-  Log("OnClockStart SystemTime: %6.3f ClockStartOffset: %f6.3f", hnsSystemTime / 10000000.0, llClockStartOffset / 10000000.0);
+  LOG_TRACE("pre buffering on 2");
+  m_bDoPreBuffering = true;
+
+  Log("OnClockStart SystemTime: %6.3f ClockStartOffset: %6.3f", hnsSystemTime / 10000000.0, llClockStartOffset / 10000000.0);
 
   if (IsActive())
   {
@@ -2123,6 +2156,11 @@ HRESULT STDMETHODCALLTYPE MPEVRCustomPresenter::OnClockStart(MFTIME hnsSystemTim
   NotifyScheduler(true);
   GetAVSyncClockInterface();
   m_bEndBuffering = false;
+
+  if (m_pMediaSeeking)
+  {
+    m_pMediaSeeking->GetDuration(&m_streamDuration);
+  }
 
   return S_OK;
 }
@@ -2180,6 +2218,8 @@ HRESULT STDMETHODCALLTYPE MPEVRCustomPresenter::OnClockRestart(MFTIME hnsSystemT
     return hr;
   }
 
+  LOG_TRACE("pre buffering on 3");
+  m_bDoPreBuffering = true;
   Log("OnClockRestart: %6.3f", hnsSystemTime / 10000000.0);
   ASSERT(m_state == MP_RENDER_STATE_PAUSED);
   m_state = MP_RENDER_STATE_STARTED;
@@ -2192,6 +2232,12 @@ HRESULT STDMETHODCALLTYPE MPEVRCustomPresenter::OnClockRestart(MFTIME hnsSystemT
   SetupAudioRenderer();
   
   m_bEndBuffering = false;
+  m_bNewSegment = true;
+
+  if (m_pMediaSeeking)
+  {
+    m_pMediaSeeking->GetDuration(&m_streamDuration);
+  }
 
   return S_OK;
 }
@@ -2353,7 +2399,7 @@ HRESULT MPEVRCustomPresenter::Paint(CComPtr<IDirect3DSurface9> pSurface)
       }
       else
       {
-        m_bFlush = FALSE;
+        m_bFlush = false;
       }
     }
 
@@ -3810,12 +3856,10 @@ void MPEVRCustomPresenter::AdjustAVSync(double currentPhaseDiff)
 // IBaseFilter delegate
 bool MPEVRCustomPresenter::GetState(DWORD dwMilliSecsTimeout, FILTER_STATE* State, HRESULT& pReturnValue)
 {
-  return false;
-
   bool moreSamplesNeeded = BufferMoreSamples();
   bool stopWaiting = false;
 
-  if (!moreSamplesNeeded) // all samples have arrieved 
+  if (!moreSamplesNeeded || !m_bDoPreBuffering) // all samples have arrieved 
   {
     return false;
   }
@@ -3854,6 +3898,8 @@ bool MPEVRCustomPresenter::GetState(DWORD dwMilliSecsTimeout, FILTER_STATE* Stat
   }
   else
   {
+    LOG_TRACE("pre buffering off 3");
+    m_bDoPreBuffering = false;
     return false;
   }
 }

@@ -128,7 +128,7 @@ CBDReaderFilter::CBDReaderFilter(IUnknown *pUnk, HRESULT *phr):
   GetLogFile(filename);
   ::DeleteFile(filename);
   LogDebug("--------- bluray ---------------------");
-  LogDebug("-------------- v0.56 -----------------");
+  LogDebug("-------------- v0.60 -----------------");
 
   LogDebug("CBDReaderFilter::ctor");
   m_pAudioPin = new CAudioPin(GetOwner(), this, phr, &m_section, m_demultiplexer);
@@ -222,15 +222,15 @@ STDMETHODIMP CBDReaderFilter::NonDelegatingQueryInterface(REFIID riid, void ** p
     return GetInterface((IAMStreamSelect*)this, ppv);
   if (riid == IID_ISubtitleStream)
     return GetInterface((ISubtitleStream*)this, ppv);
-  if ( riid == IID_IBDReader )
+  if (riid == IID_IBDReader)
     return GetInterface((IBDReader*)this, ppv);
-  if ( riid == IID_IAudioStream )
+  if (riid == IID_IAudioStream)
     return GetInterface((IAudioStream*)this, ppv);
 
   return CSource::NonDelegatingQueryInterface(riid, ppv);
 }
 
-CBasePin * CBDReaderFilter::GetPin(int n)
+CBasePin* CBDReaderFilter::GetPin(int n)
 {
   if (n == 0)
     return m_pAudioPin;
@@ -422,11 +422,7 @@ STDMETHODIMP CBDReaderFilter::SetChapter(UINT32 chapter)
   UINT32 current = 0;
   if (lib.GetChapter(&current) && current != chapter)
   {
-    CAutoLock(&(m_demultiplexer.m_sectionRead));
-    hr = lib.SetChapter(chapter) ? S_OK : S_FALSE;
-    // TODO get chapter position in playlist
-    REFERENCE_TIME rtChapterStart = 0LL;
-    m_demultiplexer.Flush(true, true, rtChapterStart);
+    hr = m_demultiplexer.FlushToChapter(chapter);
   }
 
   return hr;
@@ -641,6 +637,8 @@ STDMETHODIMP CBDReaderFilter::Run(REFERENCE_TIME tStart)
   if (m_pSubtitlePin) 
     m_pSubtitlePin->SetRunningStatus(true);
 	
+  if (m_pVideoPin)
+    m_pVideoPin->SetRunningStatus(true);
   // Set our StreamTime Reference offset to zero
   HRESULT hr = CSource::Run(tStart);
 
@@ -1079,7 +1077,7 @@ STDMETHODIMP CBDReaderFilter::SetPositionsInternal(void *caller, LONGLONG* pCurr
     rtStop = m_rtStop;
 
 
-  bool fakeSeek = dwCurrentFlags & AM_SEEKING_FakeSeek;
+  bool fakeSeek = (dwCurrentFlags & AM_SEEKING_FakeSeek) == AM_SEEKING_FakeSeek;
   bool resetStreamPosition = caller == m_pVideoPin && fakeSeek;
 
   if (pCurrent) 
