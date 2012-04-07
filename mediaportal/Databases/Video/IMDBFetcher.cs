@@ -1091,6 +1091,10 @@ namespace MediaPortal.Video.Database
           currentMovie = movieDetails;
           return true;
         }
+        if (fetcher.Movie == null)
+		{
+          fetcher.Movie = currentMovie;
+		}              
         return fetcher.OnDetailsNotFound(fetcher);
       }
       return false;
@@ -1244,6 +1248,7 @@ namespace MediaPortal.Video.Database
       {
         VirtualDirectory dir = new VirtualDirectory();
         dir.SetExtensions(Util.Utils.VideoExtensions);
+        ArrayList imagePath = new ArrayList();
         // Thumbs creation spam no1 causing this call
         //
         // Temporary disable thumbcreation
@@ -1282,7 +1287,25 @@ namespace MediaPortal.Video.Database
           }
           else
           {
-            availableFiles.Add(item.Path);
+            bool skipDuplicate = false;
+
+            if (VirtualDirectory.IsImageFile(Path.GetExtension(item.Path)))
+            {
+              string filePath = Path.GetDirectoryName(item.Path) + @"\" + Path.GetFileNameWithoutExtension(item.Path);
+
+              if (filePath != null && !imagePath.Contains(filePath))
+              {
+                imagePath.Add(filePath);
+              }
+              else
+              {
+                skipDuplicate = true;
+              }
+            }
+            if (!skipDuplicate)
+            {
+              availableFiles.Add(item.Path);
+            }
           }
         }
       }
