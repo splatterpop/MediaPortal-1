@@ -34,7 +34,7 @@ extern void LogDebug(const char *fmt, ...);
 #define ONE_SECOND  10000000LL
 #define TWO_SECONDS 20000000LL
 
-CClip::CClip(int clipNumber, int playlistNumber, REFERENCE_TIME firstPacketTime, REFERENCE_TIME clipOffset, REFERENCE_TIME totalStreamOffset, bool audioPresent, REFERENCE_TIME duration, bool seekTarget)
+CClip::CClip(int clipNumber, int playlistNumber, REFERENCE_TIME firstPacketTime, REFERENCE_TIME clipOffset, REFERENCE_TIME totalStreamOffset, bool audioPresent, REFERENCE_TIME duration, bool seekTarget, bool interrupted)
 {
   nClip=clipNumber;
   nPlaylist = playlistNumber;
@@ -49,6 +49,8 @@ CClip::CClip(int clipNumber, int playlistNumber, REFERENCE_TIME firstPacketTime,
   videoPlaybackPosition = playlistFirstPacketTime;
 
   earliestPacketAccepted = _I64_MAX;
+  firstVideoPosition = _I64_MAX;
+  firstAudioPosition = _I64_MAX;
 
   clipDuration=duration;
   clipPlaylistOffset = totalStreamOffset;
@@ -61,6 +63,7 @@ CClip::CClip(int clipNumber, int playlistNumber, REFERENCE_TIME firstPacketTime,
   m_pSparseVideoPacket = NULL;
 
   bSeekTarget = seekTarget;
+  clipInterrupted = interrupted;
 
   superceeded=0;
 
@@ -122,10 +125,12 @@ Packet* CClip::ReturnNextAudioPacket(REFERENCE_TIME playlistOffset)
   {
     if (firstAudio)
     {
+      firstAudioPosition = ret->rtStart;
       ret->nNewSegment = NS_STREAM_RESET;
-      ret->bDiscontinuity=true;
-      firstAudio=false;
+      ret->bDiscontinuity = clipInterrupted | bSeekTarget | clipReset;
+      firstAudio = false;
       if (!clipReset) ret->nNewSegment |= NS_NEW_CLIP;
+      if (clipInterrupted) ret->nNewSegment |= NS_INTERRUPTED;
     }
   
     ret->rtPlaylistTime = ret->rtStart - m_playlistOffset;
@@ -164,10 +169,11 @@ Packet* CClip::ReturnNextVideoPacket(REFERENCE_TIME playlistOffset)
     {
       if (firstVideo)
       {
-        ret->bDiscontinuity = true;
+        ret->bDiscontinuity = clipInterrupted | bSeekTarget | clipReset;
         ret->nNewSegment = NS_STREAM_RESET;
         if (bSeekTarget) ret->nNewSegment |= NS_SEEK_TARGET; 
         if (!clipReset) ret->nNewSegment |= NS_NEW_CLIP;
+        if (clipInterrupted) ret->nNewSegment |= NS_INTERRUPTED;
         firstVideo = false;
         bSeekTarget = false;
         ret->pmt = CreateMediaType(m_videoPmt);
@@ -196,9 +202,14 @@ bool CClip::FakeAudioAvailable()
 
 Packet* CClip::GenerateFakeAudio(REFERENCE_TIME rtStart)
 {
-  if (rtStart + FAKE_AUDIO_DURATION -1 >playlistFirstPacketTime+clipDuration)superceeded|=SUPERCEEDED_AUDIO_RETURN;
-  if (superceeded&SUPERCEEDED_AUDIO_RETURN) return NULL;
-  if (!FakeAudioAvailable()) return NULL;
+  if (rtStart + FAKE_AUDIO_DURATION - 1 > playlistFirstPacketTime + clipDuration) 
+    superceeded |= SUPERCEEDED_AUDIO_RETURN;
+  
+  if (superceeded&SUPERCEEDED_AUDIO_RETURN) 
+    return NULL;
+  
+  if (!FakeAudioAvailable()) 
+    return NULL;
 
   Packet* packet = new Packet();
   packet->nClipNumber = nClip;
@@ -208,23 +219,28 @@ Packet* CClip::GenerateFakeAudio(REFERENCE_TIME rtStart)
   packet->rtStart = rtStart;
   packet->rtStop = packet->rtStart + 1;
 
-  CMediaType pmt;
-  pmt.InitMediaType();
-  pmt.SetType(&MEDIATYPE_Audio);
-  pmt.SetSubtype(&MEDIASUBTYPE_DOLBY_AC3);
-  pmt.SetSampleSize(1);
-  pmt.SetTemporalCompression(FALSE);
-  pmt.SetVariableSize();
-  pmt.SetFormatType(&FORMAT_WaveFormatEx);
-  pmt.SetFormat(AC3AudioFormat, sizeof(AC3AudioFormat));
-  WAVEFORMATEXTENSIBLE* wfe = (WAVEFORMATEXTENSIBLE*)pmt.pbFormat;
-  wfe->Format.nChannels=6;
-  wfe->Format.nSamplesPerSec=48000;
-  wfe->Format.wFormatTag = WAVE_FORMAT_DOLBY_AC3;
+  if (firstAudio)
+  {
+    CMediaType pmt;
+    pmt.InitMediaType();
+    pmt.SetType(&MEDIATYPE_Audio);
+    pmt.SetSubtype(&MEDIASUBTYPE_DOLBY_AC3);
+    pmt.SetSampleSize(1);
+    pmt.SetTemporalCompression(FALSE);
+    pmt.SetVariableSize();
+    pmt.SetFormatType(&FORMAT_WaveFormatEx);
+    pmt.SetFormat(AC3AudioFormat, sizeof(AC3AudioFormat));
+    WAVEFORMATEXTENSIBLE* wfe = (WAVEFORMATEXTENSIBLE*)pmt.pbFormat;
+    wfe->Format.nChannels = 6;
+    wfe->Format.nSamplesPerSec = 48000;
+    wfe->Format.wFormatTag = WAVE_FORMAT_DOLBY_AC3;
 
-  packet->pmt = CreateMediaType(&pmt);
-  audioPlaybackPosition+=FAKE_AUDIO_DURATION;
-  lastAudioPosition+=FAKE_AUDIO_DURATION;
+    packet->pmt = CreateMediaType(&pmt);
+  }
+  
+  audioPlaybackPosition += FAKE_AUDIO_DURATION;
+  lastAudioPosition += FAKE_AUDIO_DURATION;
+
   return packet;
 }
 
@@ -465,6 +481,7 @@ REFERENCE_TIME CClip::PlayedDuration()
   if (abs(clipDuration - playDuration) < HALF_SECOND) 
   {
     LogDebug("CClip::PlayedDuration %I64d - clip played to end", clipDuration - earliestPacketAccepted + playlistFirstPacketTime);
+    if (!noAudio) return lastAudioPosition - firstAudioPosition;
     return clipDuration - earliestPacketAccepted + playlistFirstPacketTime;
   }
   if (earliestPacketAccepted>finish)
@@ -472,6 +489,7 @@ REFERENCE_TIME CClip::PlayedDuration()
     return 0LL;
   }
   LogDebug("CClip::PlayedDuration %I64d - clip (%d,%d) partially played finish %I64d start %I64d", finish - earliestPacketAccepted, nPlaylist, nClip, finish, earliestPacketAccepted);
+  if (!noAudio) return lastAudioPosition - firstAudioPosition;
   return finish - earliestPacketAccepted;
 }
 

@@ -45,8 +45,8 @@ using namespace std;
 class CClip
 {
 public:
-  CClip(int clipNumber, int playlistNumber, REFERENCE_TIME playlistFirstPacketTime, REFERENCE_TIME clipOffset, REFERENCE_TIME totalStreamOffset, bool audioPresent, REFERENCE_TIME duration, bool seekTarget);
-  ~CClip(void);
+  CClip(int clipNumber, int playlistNumber, REFERENCE_TIME playlistFirstPacketTime, REFERENCE_TIME clipOffset, REFERENCE_TIME totalStreamOffset, bool audioPresent, REFERENCE_TIME duration, bool seekTarget, bool interrupted);
+  ~CClip();
   Packet* ReturnNextAudioPacket(REFERENCE_TIME playlistOffset);
   Packet* ReturnNextVideoPacket(REFERENCE_TIME playlistOffset);
   bool AcceptAudioPacket(Packet* packet);
@@ -59,6 +59,7 @@ public:
   bool sparseVideo;
   bool bSeekTarget;
   bool clipReset;
+  bool clipInterrupted;
   void Superceed(int superceedType);
   bool IsSuperceeded(int superceedType);
   REFERENCE_TIME playlistFirstPacketTime;
@@ -72,10 +73,14 @@ public:
   REFERENCE_TIME PlayedDuration();
   void SetVideoPMT(AM_MEDIA_TYPE *pmt);
 
-  // starttime of the last audio packet buffered in the clip
+  // endtime of the last audio packet buffered in the clip
   REFERENCE_TIME lastAudioPosition;
-  // starttime of the last video packet buffered in the clip
+  // endtime of the last video packet buffered in the clip
   REFERENCE_TIME lastVideoPosition;
+  // starttime of the first audio packet buffered in the clip
+  REFERENCE_TIME firstAudioPosition;
+  // starttime of the first video packet buffered in the clip
+  REFERENCE_TIME firstVideoPosition;
 
   // starttime of the last audio packet returned from the clip to the pin
   REFERENCE_TIME audioPlaybackPosition;

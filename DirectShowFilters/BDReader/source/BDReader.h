@@ -263,6 +263,8 @@ private:
   REFERENCE_TIME m_rtSeekPosition;
   REFERENCE_TIME m_rtTitleDuration;
   REFERENCE_TIME m_rtCurrentTime;
+  REFERENCE_TIME m_rtRunOffset;
+  REFERENCE_TIME m_rtRun;
   CCritSec       m_csClock;
 
   // Times
@@ -277,6 +279,7 @@ private:
   REFERENCE_TIME m_rtLastStart;
   REFERENCE_TIME m_rtLastStop;
   std::set<void *> m_lastSeekers;
+  bool m_bFirstSeek;
 
   // Flushing
   bool m_bFlushing;
