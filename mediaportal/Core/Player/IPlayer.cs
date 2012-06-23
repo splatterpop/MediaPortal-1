@@ -158,6 +158,7 @@ namespace MediaPortal.Player
       get { return false; }
     }
 
+    /// <summary>
     /// Property which indicates what menu items can be shown
     /// Used only at BDPlayer
     /// </summary>

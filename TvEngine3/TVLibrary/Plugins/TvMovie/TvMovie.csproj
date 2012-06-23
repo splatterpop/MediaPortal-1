@@ -74,6 +74,9 @@
     <Reference Include="TvLibrary.Utils">
       <HintPath>..\..\TvLibrary.Utils\bin\Release\TvLibrary.Utils.dll</HintPath>
     </Reference>
+    <Reference Include="TvService">
+      <HintPath>..\..\TvService\bin\Release\TvService.exe</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\..\..\Common-MP-TVE3\SolutionInfo.cs">

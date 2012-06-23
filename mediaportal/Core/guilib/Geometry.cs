@@ -378,7 +378,7 @@ namespace MediaPortal.GUI.Library
           {
             // fit the image to screen size
             float fNewWidth = (float)ScreenWidth;
-            float fNewHeight = (float)(fNewWidth / fOutputFrameRatio);
+            float fNewHeight = (float)(fNewWidth / fCroppedOutputFrameRatio);
 
             float iPosY = 0;
             float iPosX = 0;
@@ -387,14 +387,14 @@ namespace MediaPortal.GUI.Library
             {
                 // we are too narrow, reduce to screen height an crop l/r --> fall back to normal
                 fNewHeight = ScreenHeight;
-                fNewWidth = fNewHeight * fOutputFrameRatio;
+                fNewWidth = fNewHeight * fCroppedOutputFrameRatio;
                 iPosX = (ScreenWidth - fNewWidth) / 2.0f;
             }
             else
             {
-                // increase in height and allow come cropping l/r
+                // increase in height and allow some cropping l/r
                 fNewHeight = (ScreenHeight + fNewHeight) / 2.0f;
-                fNewWidth = fNewHeight * fOutputFrameRatio;
+                fNewWidth = fNewHeight * fCroppedOutputFrameRatio;
                 iPosX = (ScreenWidth - fNewWidth) / 2.0f;
                 iPosY = (ScreenHeight - fNewHeight) / 2.0f;
             }

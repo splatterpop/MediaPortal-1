@@ -242,7 +242,6 @@ namespace MediaPortal.Player
           string strAudioPlayer = xmlreader.GetValueAsString("audioplayer", "player", "Internal dshow player");
           int streamPlayer = xmlreader.GetValueAsInt("audioscrobbler", "streamplayertype", 0);
           bool Vmr9Enabled = xmlreader.GetValueAsBool("musicvideo", "useVMR9", true);
-          bool BDInternalMenu = xmlreader.GetValueAsBool("bdplayer", "useInternalBDMenu", true);
 
           // Free BASS to avoid problems with Digital Audio, when watching movies
           if (BassMusicPlayer.IsDefaultMusicPlayer)
@@ -278,6 +277,10 @@ namespace MediaPortal.Player
           }
 
           string extension = Path.GetExtension(aFileName).ToLower();
+          if (extension == ".bdmv")
+          {
+            return new BDPlayer();
+          }
 
           if (extension != ".tv" && extension != ".sbe" && extension != ".dvr-ms" &&
               aFileName.ToLower().IndexOf(".tsbuffer") < 0 && aFileName.ToLower().IndexOf("radio.tsbuffer") < 0)
@@ -289,18 +292,6 @@ namespace MediaPortal.Player
               GUIMessage msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_SWITCH_FULL_WINDOWED, 0, 0, 0, 0, 0, null);
               GUIWindowManager.SendMessage(msg);
               return newPlayer;
-            }
-          }
-
-          if (extension == ".bdmv")
-          {
-            if (BDInternalMenu)
-            {
-              return new BDPlayer();
-            }
-            else
-            {
-              return new VideoPlayerVMR9();
             }
           }
 
