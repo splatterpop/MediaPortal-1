@@ -273,6 +273,12 @@
     <Compile Include="Sections\FiltersPowerDVDDecoder10.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Sections\GeneralNLS.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Sections\GeneralNLS.Designer.cs">
+      <DependentUpon>GeneralNLS.cs</DependentUpon>
+    </Compile>
     <Compile Include="SettingsUpgradeManager.cs" />
     <Compile Include="HelpSystem.cs" />
     <Compile Include="ListViewSort.cs" />
@@ -635,6 +641,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Content Include="Resources\blu-ray_regions.png" />
+    <EmbeddedResource Include="Sections\GeneralNLS.resx">
+      <DependentUpon>GeneralNLS.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\00_plugin_other.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\01_plugin_other_off.png" />
     <EmbeddedResource Include="Sections\Images\Plugins\imageListLargePlugins\02_plugin_window.png" />

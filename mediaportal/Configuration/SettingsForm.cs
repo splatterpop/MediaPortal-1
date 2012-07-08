@@ -603,6 +603,10 @@ namespace MediaPortal.Configuration
 
       // Removed because of various issues with DVD playback
       // AddSection(new ConfigPage(general, new GeneralCDSpeed(), true));
+
+      Log.Info("  add NLS section");
+      AddSection(new ConfigPage(general, new GeneralNLS(), false));
+
     }
 
     private void AddTabGui()
