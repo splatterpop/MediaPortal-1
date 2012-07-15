@@ -744,6 +744,7 @@ namespace TvPlugin
           case GUIMessage.MessageType.GUI_MSG_WINDOW_DEINIT:
             {
               base.OnMessage(message);
+              SaveSettings();
               _recordingList.Clear();
 
               _controls = new Dictionary<int, GUIButton3PartControl>();
@@ -2000,7 +2001,7 @@ namespace TvPlugin
       {
         height = GetControl((int)Controls.IMG_CHAN1).Height;
       }
-      
+
 
       foreach (Program program in programs)
       {
@@ -2253,7 +2254,7 @@ namespace TvPlugin
             if (buttonRecordTemplate != null)
             {
               buttonRecordTemplate.IsVisible = false;
-              
+
               TexutureFocusLeftName = buttonRecordTemplate.TexutureFocusLeftName;
               TexutureFocusMidName = buttonRecordTemplate.TexutureFocusMidName;
               TexutureFocusRightName = buttonRecordTemplate.TexutureFocusRightName;
@@ -4100,8 +4101,8 @@ namespace TvPlugin
 
         // Last page adjust (To get a full page channel listing)
         if (iChannelNr > _channelList.Count - Math.Min(_channelList.Count, _channelCount) + 1)
-        // minimum of available channel/max visible channels
         {
+          // minimum of available channel/max visible channels
           ChannelOffset = _channelList.Count - _channelCount;
           iChannelNr = iChannelNr - ChannelOffset;
         }
@@ -4126,7 +4127,7 @@ namespace TvPlugin
       }
     }
 
-    
+
 
     protected override void GetChannels(bool refresh)
     {
