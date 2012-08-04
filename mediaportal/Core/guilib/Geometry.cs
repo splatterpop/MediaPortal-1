@@ -385,10 +385,14 @@ namespace MediaPortal.GUI.Library
 
             if (fNewHeight > ScreenHeight)
             {
-                // we are too narrow, reduce to screen height an crop l/r --> fall back to normal
+                // we are too narrow, reduce to screen height and allow black bars l/r --> fall back to normal
                 fNewHeight = ScreenHeight;
                 fNewWidth = fNewHeight * fCroppedOutputFrameRatio;
                 iPosX = (ScreenWidth - fNewWidth) / 2.0f;
+
+                rSource = new Rectangle(cropSettings.Left, cropSettings.Top, croppedImageWidth, croppedImageHeight);
+                rDest = new Rectangle((int)iPosX, (int)iPosY, (int)fNewWidth, (int)fNewHeight);
+
             }
             else
             {
@@ -397,11 +401,20 @@ namespace MediaPortal.GUI.Library
                 fNewWidth = fNewHeight * fCroppedOutputFrameRatio;
                 iPosX = (ScreenWidth - fNewWidth) / 2.0f;
                 iPosY = (ScreenHeight - fNewHeight) / 2.0f;
+
+                // target viewport is now too wide; reduce everything to screen width 
+                // oversize percentage
+                float f = -((float)iPosX / (float)fNewWidth);
+
+                rSource = new Rectangle(cropSettings.Left, cropSettings.Top, croppedImageWidth, croppedImageHeight);
+                rDest = new Rectangle((int)iPosX, (int)iPosY, (int)fNewWidth, (int)fNewHeight);
+
+                rSource.Inflate(new Size(-(int)((float)rSource.Width * f ), 0));
+                rDest.Inflate(new Size(-(int)((float)rDest.Width * f), 0));
+
+
+
             }
-
-              rSource = new Rectangle(cropSettings.Left, cropSettings.Top, croppedImageWidth, croppedImageHeight);
-
-              rDest = new Rectangle((int)iPosX, (int)iPosY, (int)fNewWidth, (int)fNewHeight);
 
 /*                        float iPosX = 0;
                         float iPosY = 0;
