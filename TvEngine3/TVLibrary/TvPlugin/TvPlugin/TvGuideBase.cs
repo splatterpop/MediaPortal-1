@@ -1193,8 +1193,7 @@ namespace TvPlugin
         GUIPropertyManager.SetProperty(SkinPropertyPrefix + ".Guide.ChannelName", strChannel);
         if (_showChannelNumber)
         {
-          IList<TuningDetail> detail = chan.ReferringTuningDetail();
-          int channelNum = detail[0].ChannelNumber;
+          int channelNum = chan.ChannelNumber;
           GUIPropertyManager.SetProperty(SkinPropertyPrefix + ".Guide.ChannelNumber", channelNum + "");
         }
         else
@@ -1929,10 +1928,7 @@ namespace TvPlugin
 
       if (!_byIndex)
       {
-        foreach (TuningDetail detail in channel.ReferringTuningDetail())
-        {
-          channelNum = detail.ChannelNumber;
-        }
+        channelNum = channel.ChannelNumber;
       }
       else
       {
@@ -3727,8 +3723,14 @@ namespace TvPlugin
                   case 938:
                     Log.Debug("TVGuide: switch currently running show to fullscreen");
                     GUIWaitCursor.Show();
-                    TVHome.ViewChannelAndCheck(_currentProgram.ReferencedChannel());
-                    GUIWaitCursor.Hide();
+                    try
+                    {
+                      TVHome.ViewChannelAndCheck(_currentProgram.ReferencedChannel());
+                    }
+                    finally
+                    {
+                      GUIWaitCursor.Hide();
+                    }
                     if (g_Player.Playing)
                     {
                       g_Player.ShowFullScreenWindow();
@@ -3748,8 +3750,14 @@ namespace TvPlugin
                 TVHome.UserChannelChanged = true;
                 // fixing mantis 1874: TV doesn't start when from other playing media to TVGuide & select program
                 GUIWaitCursor.Show();
-                TVHome.ViewChannelAndCheck(_currentProgram.ReferencedChannel());
-                GUIWaitCursor.Hide();
+                try
+                {
+                  TVHome.ViewChannelAndCheck(_currentProgram.ReferencedChannel());
+                }
+                finally
+                {
+                  GUIWaitCursor.Hide();
+                }
                 if (g_Player.Playing)
                 {
                   if (isPlayingTV) GUIWindowManager.CloseCurrentWindow();
@@ -4073,19 +4081,18 @@ namespace TvPlugin
         while (iCounter < _channelList.Count && found == false)
         {
           chan = (Channel)_channelList[iCounter].channel;
-          foreach (TuningDetail detail in chan.ReferringTuningDetail())
+
+          if (chan.ChannelNumber == searchChannel)
           {
-            if (detail.ChannelNumber == searchChannel)
-            {
-              iChannelNr = iCounter;
-              found = true;
-            } //find closest channel number
-            else if ((int)Math.Abs(detail.ChannelNumber - searchChannel) < channelDistance)
-            {
-              channelDistance = (int)Math.Abs(detail.ChannelNumber - searchChannel);
-              iChannelNr = iCounter;
-            }
+            iChannelNr = iCounter;
+            found = true;
+          } //find closest channel number
+          else if ((int)Math.Abs(chan.ChannelNumber - searchChannel) < channelDistance)
+          {
+            channelDistance = (int)Math.Abs(chan.ChannelNumber - searchChannel);
+            iChannelNr = iCounter;
           }
+
           iCounter++;
         }
       }
@@ -4171,8 +4178,7 @@ namespace TvPlugin
                   }
                   else
                   {
-                    foreach (TuningDetail detail in tvGuidChannel.channel.ReferringTuningDetail())
-                      tvGuidChannel.channelNum = detail.ChannelNumber;
+                    tvGuidChannel.channelNum = chan.ChannelNumber;
                   }
                 }
                 tvGuidChannel.strLogo = GetChannelLogo(tvGuidChannel.channel.DisplayName);
@@ -4187,7 +4193,7 @@ namespace TvPlugin
         {
           GuideChannel tvGuidChannel = new GuideChannel();
           tvGuidChannel.channel = new Channel(false, true, 0, DateTime.MinValue, false,
-                                              DateTime.MinValue, 0, true, "", GUILocalizeStrings.Get(911));
+                                              DateTime.MinValue, 0, true, "", GUILocalizeStrings.Get(911), 10000);
           for (int i = 0; i < 10; ++i)
           {
             _channelList.Add(tvGuidChannel);
