@@ -362,6 +362,7 @@ ${MementoSection} "MediaPortal TV Server" SecServer
   ${LOG_TEXT} "INFO" "Terminating processes ..."
   ${StopService} "TVservice"
   ${KillProcess} "SetupTv.exe"
+  ${KillProcess} "mptray.exe"
 
   SetOverwrite on
 
@@ -663,7 +664,7 @@ ${MementoSectionEnd}
   ${LOG_TEXT} "INFO" "Terminating processes ..."
   ${KillProcess} "MediaPortal.exe"
   ${KillProcess} "configuration.exe"
-
+  
   #---------------------------------------------------------------------------
   # FILTER UNREGISTRATION     for TVClient
   #               for more information see:           http://nsis.sourceforge.net/Docs/AppendixB.html

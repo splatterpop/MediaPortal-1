@@ -303,7 +303,7 @@ namespace MediaPortal.GUI.Pictures
     private static string currentFolder = string.Empty;
     private string m_strDirectoryStart = string.Empty;
     private string destinationFolder = string.Empty;
-    private VirtualDirectory virtualDirectory = VirtualDirectories.Instance.Pictures; // new VirtualDirectory();
+    private static VirtualDirectory virtualDirectory = VirtualDirectories.Instance.Pictures; // new VirtualDirectory();
     private MapSettings mapSettings = new MapSettings();
     private bool isFileMenuEnabled = false;
     private string fileMenuPinCode = string.Empty;

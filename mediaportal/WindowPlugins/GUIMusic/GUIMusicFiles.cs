@@ -131,7 +131,7 @@ namespace MediaPortal.GUI.Music
     private MapSettings _mapSettings = new MapSettings();
     private DirectoryHistory _dirHistory = new DirectoryHistory();
     private GUIListItem _selectedListItem = null;
-    private VirtualDirectory _virtualDirectory = VirtualDirectories.Instance.Music; // new VirtualDirectory();
+    private static VirtualDirectory virtualDirectory = VirtualDirectories.Instance.Music; // new VirtualDirectory();
 
     private int _selectedAlbum = -1;
     private int _selectedItem = -1;
@@ -238,7 +238,7 @@ namespace MediaPortal.GUI.Music
         _fileMenuPinCode = Util.Utils.DecryptPin(xmlreader.GetValueAsString("filemenu", "pincode", string.Empty));
 
         string strDefault = xmlreader.GetValueAsString("music", "default", string.Empty);
-/*        _virtualDirectory.Clear();
+/*        virtualDirectory.Clear();
         foreach (Share share in _shareList)
         {
           if (!string.IsNullOrEmpty(share.Name))
@@ -251,7 +251,7 @@ namespace MediaPortal.GUI.Music
                 if (share.IsFtpShare)
                 {
                   //remote:hostname?port?login?password?folder
-                  currentFolder = _virtualDirectory.GetShareRemoteURL(share);
+                  currentFolder = virtualDirectory.GetShareRemoteURL(share);
                   _startDirectory = currentFolder;
                 }
                 else
@@ -262,7 +262,7 @@ namespace MediaPortal.GUI.Music
               }
             }
 
-            _virtualDirectory.Add(share);
+            virtualDirectory.Add(share);
           }
           else
           {
@@ -327,8 +327,8 @@ namespace MediaPortal.GUI.Music
     {
       base.OnAdded();
       currentFolder = string.Empty;
-      _virtualDirectory.AddDrives();
-      _virtualDirectory.SetExtensions(Util.Utils.AudioExtensions);
+      virtualDirectory.AddDrives();
+      virtualDirectory.SetExtensions(Util.Utils.AudioExtensions);
 
       using (Profile.Settings xmlreader = new Profile.MPSettings())
       {
@@ -379,7 +379,7 @@ namespace MediaPortal.GUI.Music
     {
       if (!KeepVirtualDirectory(PreviousWindowId))
       {
-        _virtualDirectory.Reset();
+        virtualDirectory.Reset();
       }
 
       base.OnPageLoad();
@@ -437,7 +437,7 @@ namespace MediaPortal.GUI.Music
 
         currentFolder = strNewDirectory;
 
-        List<GUIListItem> itemlist = _virtualDirectory.GetDirectoryExt(currentFolder);
+        List<GUIListItem> itemlist = virtualDirectory.GetDirectoryExt(currentFolder);
 
         string strSelectedItem = _dirHistory.Get(currentFolder);
 
@@ -572,7 +572,7 @@ namespace MediaPortal.GUI.Music
             currentFolder = message.Label;
             if (!Util.Utils.IsRemovable(message.Label))
             {
-              _virtualDirectory.AddRemovableDrive(message.Label, message.Label2);
+              virtualDirectory.AddRemovableDrive(message.Label, message.Label2);
             }
           }
           LoadDirectory(currentFolder);
@@ -580,7 +580,7 @@ namespace MediaPortal.GUI.Music
         case GUIMessage.MessageType.GUI_MSG_REMOVE_REMOVABLE_DRIVE:
           if (!Util.Utils.IsRemovable(message.Label))
           {
-            _virtualDirectory.Remove(message.Label);
+            virtualDirectory.Remove(message.Label);
           }
           if (currentFolder.Contains(message.Label))
           {
@@ -676,7 +676,7 @@ namespace MediaPortal.GUI.Music
               }
             }
 
-            if (!_virtualDirectory.IsRemote(currentFolder))
+            if (!virtualDirectory.IsRemote(currentFolder))
             {
               dlg.AddLocalizedString(102); //Scan
             }
@@ -694,7 +694,7 @@ namespace MediaPortal.GUI.Music
         }
 
         int iPincodeCorrect;
-        if (!_virtualDirectory.IsProtectedShare(item.Path, out iPincodeCorrect) && !item.IsRemote && _useFileMenu)
+        if (!virtualDirectory.IsProtectedShare(item.Path, out iPincodeCorrect) && !item.IsRemote && _useFileMenu)
         {
           dlg.AddLocalizedString(500); // FileMenu
         }
@@ -900,15 +900,15 @@ namespace MediaPortal.GUI.Music
       }
       else
       {
-        if (_virtualDirectory.IsRemote(item.Path))
+        if (virtualDirectory.IsRemote(item.Path))
         {
-          if (!_virtualDirectory.IsRemoteFileDownloaded(item.Path, item.FileInfo.Length))
+          if (!virtualDirectory.IsRemoteFileDownloaded(item.Path, item.FileInfo.Length))
           {
-            if (!_virtualDirectory.ShouldWeDownloadFile(item.Path))
+            if (!virtualDirectory.ShouldWeDownloadFile(item.Path))
             {
               return;
             }
-            if (!_virtualDirectory.DownloadRemoteFile(item.Path, item.FileInfo.Length))
+            if (!virtualDirectory.DownloadRemoteFile(item.Path, item.FileInfo.Length))
             {
               //show message that we are unable to download the file
               GUIMessage msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_SHOW_WARNING, 0, 0, 0, 0, 0, 0);
@@ -999,7 +999,7 @@ namespace MediaPortal.GUI.Music
       dlgFile.SetSourceItem(item);
       dlgFile.SetSourceDir(currentFolder);
       dlgFile.SetDestinationDir(_destination);
-      dlgFile.SetDirectoryStructure(_virtualDirectory);
+      dlgFile.SetDirectoryStructure(virtualDirectory);
       dlgFile.DoModal(GetID);
       _destination = dlgFile.GetDestinationDir();
 
@@ -1027,7 +1027,7 @@ namespace MediaPortal.GUI.Music
         return;
       }
       int pin;
-      if (item.IsFolder && (_virtualDirectory.IsProtectedShare(item.Path, out pin)))
+      if (item.IsFolder && (virtualDirectory.IsProtectedShare(item.Path, out pin)))
       {
         return;
       }
@@ -1185,7 +1185,7 @@ namespace MediaPortal.GUI.Music
       }
       else
       {
-        Share share = _virtualDirectory.GetShare(folderName);
+        Share share = virtualDirectory.GetShare(folderName);
         if (share != null)
         {
           if (_mapSettings == null)
@@ -1351,7 +1351,7 @@ namespace MediaPortal.GUI.Music
         return false;
       }
 
-      Share share = _virtualDirectory.GetShare(pItem.Path);
+      Share share = virtualDirectory.GetShare(pItem.Path);
       bool isCdOrDvd = Util.Utils.IsDVD(pItem.Path);
 
       if (!isCdOrDvd && share != null && share.Path == pItem.Path)
@@ -1596,7 +1596,7 @@ namespace MediaPortal.GUI.Music
       if (item.IsFolder)
       {
         // recursively add sub folders
-        List<GUIListItem> subFolders = _virtualDirectory.GetDirectoryExt(item.Path);
+        List<GUIListItem> subFolders = virtualDirectory.GetDirectoryExt(item.Path);
         GetTagInfo(ref subFolders);
         foreach (GUIListItem subItem in subFolders)
         {
@@ -1899,28 +1899,28 @@ namespace MediaPortal.GUI.Music
 
     public static void ResetShares()
     {
-      _virtualDirectory.Reset();
-      _virtualDirectory.DefaultShare = null;
-      _virtualDirectory.LoadSettings("music");
+      virtualDirectory.Reset();
+      virtualDirectory.DefaultShare = null;
+      virtualDirectory.LoadSettings("music");
       
-      if (_virtualDirectory.DefaultShare != null)
+      if (virtualDirectory.DefaultShare != null)
       {
         int pincode;
-        bool folderPinProtected = _virtualDirectory.IsProtectedShare(_virtualDirectory.DefaultShare.Path, out pincode);
+        bool folderPinProtected = virtualDirectory.IsProtectedShare(virtualDirectory.DefaultShare.Path, out pincode);
         if (folderPinProtected)
         {
           currentFolder = string.Empty;
         }
         else
         {
-          currentFolder = _virtualDirectory.DefaultShare.Path;
+          currentFolder = virtualDirectory.DefaultShare.Path;
         }
       }
     }
 
     public static void ResetExtensions(ArrayList extensions)
     {
-      _virtualDirectory.SetExtensions(extensions);
+      virtualDirectory.SetExtensions(extensions);
     }
 
     #region ISetupForm Members

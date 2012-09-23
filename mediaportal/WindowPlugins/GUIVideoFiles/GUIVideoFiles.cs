@@ -106,7 +106,7 @@ namespace MediaPortal.GUI.Video
     #region variables
 
     private static bool _askBeforePlayingDVDImage;
-    private static VirtualDirectory _virtualDirectory;
+    private static VirtualDirectory virtualDirectory;
     private static string _currentFolder = string.Empty;
     private static PlayListPlayer _playlistPlayer;
 
@@ -312,7 +312,7 @@ namespace MediaPortal.GUI.Video
         _watchedPercentage = xmlreader.GetValueAsInt("movies", "playedpercentagewatched", 95);
         _videoInfoInShare = xmlreader.GetValueAsBool("moviedatabase", "movieinfoshareview", false);
         
-        _virtualDirectory = VirtualDirectories.Instance.Movies;
+        virtualDirectory = VirtualDirectories.Instance.Movies;
 		    // External player
         _useInternalVideoPlayer = xmlreader.GetValueAsBool("movieplayer", "internal", true);
         _useInternalDVDVideoPlayer = xmlreader.GetValueAsBool("dvdplayer", "internal", true);
@@ -320,18 +320,18 @@ namespace MediaPortal.GUI.Video
         
         if (_virtualStartDirectory == string.Empty)
         {
-          if (_virtualDirectory.DefaultShare != null)
+          if (virtualDirectory.DefaultShare != null)
           {
-            if (_virtualDirectory.DefaultShare.IsFtpShare)
+            if (virtualDirectory.DefaultShare.IsFtpShare)
             {
               //remote:hostname?port?login?password?folder
-              _currentFolder = _virtualDirectory.GetShareRemoteURL(_virtualDirectory.DefaultShare);
+              _currentFolder = virtualDirectory.GetShareRemoteURL(virtualDirectory.DefaultShare);
               _virtualStartDirectory = _currentFolder;
             }
             else
             {
-              _currentFolder = _virtualDirectory.DefaultShare.Path;
-              _virtualStartDirectory = _virtualDirectory.DefaultShare.Path;
+              _currentFolder = virtualDirectory.DefaultShare.Path;
+              _virtualStartDirectory = virtualDirectory.DefaultShare.Path;
             }
           }
         }
@@ -547,7 +547,7 @@ namespace MediaPortal.GUI.Video
             _currentFolder = message.Label;
             if (!Util.Utils.IsRemovable(message.Label))
             {
-              _virtualDirectory.AddRemovableDrive(message.Label, message.Label2);
+              virtualDirectory.AddRemovableDrive(message.Label, message.Label2);
             }
           }
           LoadDirectory(_currentFolder);
@@ -556,7 +556,7 @@ namespace MediaPortal.GUI.Video
         case GUIMessage.MessageType.GUI_MSG_REMOVE_REMOVABLE_DRIVE:
           if (!Util.Utils.IsRemovable(message.Label))
           {
-            _virtualDirectory.Remove(message.Label);
+            virtualDirectory.Remove(message.Label);
           }
           if (_currentFolder.Contains(message.Label))
           {
@@ -628,23 +628,23 @@ namespace MediaPortal.GUI.Video
       }
       else
       {
-        if (!_virtualDirectory.RequestPin(path))
+        if (!virtualDirectory.RequestPin(path))
         {
           _playClicked = false;
           return;
         }
         
-        if (_virtualDirectory.IsRemote(path))
+        if (virtualDirectory.IsRemote(path))
         {
-          if (!_virtualDirectory.IsRemoteFileDownloaded(path, item.FileInfo.Length))
+          if (!virtualDirectory.IsRemoteFileDownloaded(path, item.FileInfo.Length))
           {
-            if (!_virtualDirectory.ShouldWeDownloadFile(path))
+            if (!virtualDirectory.ShouldWeDownloadFile(path))
             {
               _playClicked = false;
               return;
             }
             
-            if (!_virtualDirectory.DownloadRemoteFile(path, item.FileInfo.Length))
+            if (!virtualDirectory.DownloadRemoteFile(path, item.FileInfo.Length))
             {
               //show message that we are unable to download the file
               GUIMessage msg = new GUIMessage(GUIMessage.MessageType.GUI_MSG_SHOW_WARNING, 0, 0, 0, 0, 0, 0);
@@ -666,7 +666,7 @@ namespace MediaPortal.GUI.Video
 
         if (item.FileInfo != null)
         {
-          if (!_virtualDirectory.IsRemoteFileDownloaded(path, item.FileInfo.Length))
+          if (!virtualDirectory.IsRemoteFileDownloaded(path, item.FileInfo.Length))
           {
             _playClicked = false;
             return;
@@ -674,7 +674,7 @@ namespace MediaPortal.GUI.Video
         }
         
         string movieFileName = path;
-        movieFileName = _virtualDirectory.GetLocalFilename(movieFileName);
+        movieFileName = virtualDirectory.GetLocalFilename(movieFileName);
 
         if (PlayListFactory.IsPlayList(movieFileName))
         {
@@ -886,7 +886,7 @@ namespace MediaPortal.GUI.Video
         return;
       }
       
-      if (!_virtualDirectory.RequestPin(listItem.Path))
+      if (!virtualDirectory.RequestPin(listItem.Path))
       {
         return;
       }
@@ -913,7 +913,7 @@ namespace MediaPortal.GUI.Video
           return;
         }
         
-        List<GUIListItem> itemlist = _virtualDirectory.GetDirectoryUnProtectedExt(listItem.Path, true);
+        List<GUIListItem> itemlist = virtualDirectory.GetDirectoryUnProtectedExt(listItem.Path, true);
         
         foreach (GUIListItem item in itemlist)
         {
@@ -949,7 +949,7 @@ namespace MediaPortal.GUI.Video
         return;
       }
 
-      if (!_virtualDirectory.RequestPin(pItem.Path))
+      if (!virtualDirectory.RequestPin(pItem.Path))
       {
         return;
       }
@@ -1187,7 +1187,7 @@ namespace MediaPortal.GUI.Video
         if (!facadeLayout.Focus)
         {
           // Menu button context menuu
-          if (!_virtualDirectory.IsRemote(_currentFolder))
+          if (!virtualDirectory.IsRemote(_currentFolder))
           {
             dlg.AddLocalizedString(102); //Scan
             dlg.AddLocalizedString(368); //IMDB
@@ -1390,7 +1390,7 @@ namespace MediaPortal.GUI.Video
             }
           }
 
-          if (!_virtualDirectory.RequestPin(item.Path))
+          if (!virtualDirectory.RequestPin(item.Path))
           {
             return;
           }
@@ -1422,7 +1422,7 @@ namespace MediaPortal.GUI.Video
             }
           }
 
-          if (!_virtualDirectory.RequestPin(item.Path))
+          if (!virtualDirectory.RequestPin(item.Path))
           {
             return;
           }
@@ -1487,7 +1487,7 @@ namespace MediaPortal.GUI.Video
 
         case 1204: // Play all
           {
-            if (!_virtualDirectory.RequestPin(item.Path))
+            if (!virtualDirectory.RequestPin(item.Path))
             {
               return;
             }
@@ -1509,9 +1509,9 @@ namespace MediaPortal.GUI.Video
           {
             ResetShares();
 
-            if (_virtualDirectory.DefaultShare != null && _virtualDirectory.DefaultShare.Path != string.Empty)
+            if (virtualDirectory.DefaultShare != null && virtualDirectory.DefaultShare.Path != string.Empty)
             {
-              LoadDirectory(_virtualDirectory.DefaultShare.Path, false);
+              LoadDirectory(virtualDirectory.DefaultShare.Path, false);
             }
             else
             {
@@ -1892,11 +1892,11 @@ namespace MediaPortal.GUI.Video
 
         if (requestPin)
         {
-          items = _virtualDirectory.GetDirectoryExt(file);
+          items = virtualDirectory.GetDirectoryExt(file);
         }
         else
         {
-          items = _virtualDirectory.GetDirectoryUnProtectedExt(file, true);
+          items = virtualDirectory.GetDirectoryUnProtectedExt(file, true);
         }
 
         if (items.Count == 1 && file != string.Empty)
@@ -1999,7 +1999,7 @@ namespace MediaPortal.GUI.Video
     public static void Reset()
     {
       Log.Debug("GUIVideoFiles: Resetting virtual directory");
-      _virtualDirectory.Reset();
+      virtualDirectory.Reset();
     }
 
     [Obsolete("This method is obsolete; use method PlayMovie(int idMovie, bool requestPin) instead.")]
@@ -2058,7 +2058,7 @@ namespace MediaPortal.GUI.Video
         }
 
         int iPincodeCorrect;
-        if (_virtualDirectory.IsProtectedShare(strDir, out iPincodeCorrect))
+        if (virtualDirectory.IsProtectedShare(strDir, out iPincodeCorrect))
         {
           #region Pin protected
 
@@ -2536,14 +2536,14 @@ namespace MediaPortal.GUI.Video
     
     public static void ResetShares()
     {
-      _virtualDirectory.Reset();
-      _virtualDirectory.DefaultShare = null;
-      _virtualDirectory.LoadSettings("movies");
+      virtualDirectory.Reset();
+      virtualDirectory.DefaultShare = null;
+      virtualDirectory.LoadSettings("movies");
 
-      if (_virtualDirectory.DefaultShare != null)
+      if (virtualDirectory.DefaultShare != null)
       {
         int pincode;
-        bool folderPinProtected = _virtualDirectory.IsProtectedShare(_virtualDirectory.DefaultShare.Path, out pincode);
+        bool folderPinProtected = virtualDirectory.IsProtectedShare(virtualDirectory.DefaultShare.Path, out pincode);
 
         if (folderPinProtected)
         {
@@ -2551,14 +2551,14 @@ namespace MediaPortal.GUI.Video
         }
         else
         {
-          _currentFolder = _virtualDirectory.DefaultShare.Path;
+          _currentFolder = virtualDirectory.DefaultShare.Path;
         }
       }
     }
 
     public static void ResetExtensions(ArrayList extensions)
     {
-      _virtualDirectory.SetExtensions(extensions);
+      virtualDirectory.SetExtensions(extensions);
     }
 
     public static IMDB.InternalMovieInfoScraper InternalGrabber
@@ -2683,7 +2683,7 @@ namespace MediaPortal.GUI.Video
       else
       {
         // here we get ALL files in every subdir, look for folderthumbs, defaultthumbs, etc
-        itemlist = _virtualDirectory.GetDirectoryExt(_currentFolder);
+        itemlist = virtualDirectory.GetDirectoryExt(_currentFolder);
 
         if (_mapSettings != null && _mapSettings.Stack)
         {
@@ -2901,9 +2901,9 @@ namespace MediaPortal.GUI.Video
           _resetCount++;
           ResetShares();
 
-          if (_virtualDirectory.DefaultShare != null && _virtualDirectory.DefaultShare.Path != string.Empty)
+          if (virtualDirectory.DefaultShare != null && virtualDirectory.DefaultShare.Path != string.Empty)
           {
-            LoadDirectory(_virtualDirectory.DefaultShare.Path, false);
+            LoadDirectory(virtualDirectory.DefaultShare.Path, false);
           }
           else
           {
@@ -2951,7 +2951,7 @@ namespace MediaPortal.GUI.Video
       }
       else
       {
-        Share share = _virtualDirectory.GetShare(folderName);
+        Share share = virtualDirectory.GetShare(folderName);
 
         if (share != null)
         {
@@ -3504,7 +3504,7 @@ namespace MediaPortal.GUI.Video
       // Check if file is stackable and get rest of the stack
       if (IsFileStackable(strFile))
       {
-        List<GUIListItem> items = _virtualDirectory.GetDirectoryUnProtectedExt(_currentFolder, true);
+        List<GUIListItem> items = virtualDirectory.GetDirectoryUnProtectedExt(_currentFolder, true);
 
         for (int i = 0; i < items.Count; ++i)
         {
@@ -3803,7 +3803,7 @@ namespace MediaPortal.GUI.Video
         return;
       }
 
-      if (!_virtualDirectory.RequestPin(item.Path))
+      if (!virtualDirectory.RequestPin(item.Path))
       {
         return;
       }
@@ -3820,7 +3820,7 @@ namespace MediaPortal.GUI.Video
       dlgFile.SetSourceItem(item);
       dlgFile.SetSourceDir(_currentFolder);
       dlgFile.SetDestinationDir(_fileMenuDestinationDir);
-      dlgFile.SetDirectoryStructure(_virtualDirectory);
+      dlgFile.SetDirectoryStructure(virtualDirectory);
 
       if (preselectDelete)
       {
@@ -3862,7 +3862,7 @@ namespace MediaPortal.GUI.Video
     private static bool IsFolderPinProtected(string folder)
     {
       int pinCode = 0;
-      return _virtualDirectory.IsProtectedShare(folder, out pinCode);
+      return virtualDirectory.IsProtectedShare(folder, out pinCode);
     }
 
     private static void AddVideoFiles(string path, ref ArrayList availableFiles)
@@ -3943,7 +3943,7 @@ namespace MediaPortal.GUI.Video
         }
         string path = item.Path;
         bool isDVD = (path.ToUpper().IndexOf("VIDEO_TS") >= 0);
-        List<GUIListItem> listFiles = _virtualDirectory.GetDirectoryUnProtectedExt(_currentFolder, false);
+        List<GUIListItem> listFiles = virtualDirectory.GetDirectoryUnProtectedExt(_currentFolder, false);
         string[] subExts = {
                               ".utf", ".utf8", ".utf-8", ".sub", ".srt", ".smi", ".rt", ".txt", ".ssa", ".aqt", ".jss",
                               ".ass", ".idx", ".ifo"
@@ -3964,9 +3964,9 @@ namespace MediaPortal.GUI.Video
 
               if (String.Compare(listFiles[x].Path, subTitleFileName, true) == 0)
               {
-                string localSubtitleFileName = _virtualDirectory.GetLocalFilename(subTitleFileName);
+                string localSubtitleFileName = virtualDirectory.GetLocalFilename(subTitleFileName);
                 Util.Utils.FileDelete(localSubtitleFileName);
-                _virtualDirectory.DownloadRemoteFile(subTitleFileName, 0);
+                virtualDirectory.DownloadRemoteFile(subTitleFileName, 0);
               }
             }
           }
@@ -3985,7 +3985,7 @@ namespace MediaPortal.GUI.Video
               continue;
             }
 
-            _virtualDirectory.DownloadRemoteFile(listFiles[i].Path, 0);
+            virtualDirectory.DownloadRemoteFile(listFiles[i].Path, 0);
           }
         }
       }
