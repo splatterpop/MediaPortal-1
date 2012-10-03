@@ -380,6 +380,9 @@ namespace MediaPortal.GUI.Video
         listActorMovies.Add(item);
       }
 
+      //set object count label
+      GUIPropertyManager.SetProperty("#itemcount", Util.Utils.GetObjectCountLabel(_currentActor.Count));
+
       string largeCoverArtImage = Util.Utils.GetLargeCoverArtName(Thumbs.MovieActors, _currentActor.ID.ToString());
 
       if (imgCoverArt != null)
@@ -462,11 +465,11 @@ namespace MediaPortal.GUI.Video
         GUIPropertyManager.SetProperty("#Actor.MovieImage", item.ThumbnailImage);
         GUIPropertyManager.SetProperty("#imdbnumber", ListItemMovieInfo(item).MovieImdbID);
         GUIPropertyManager.SetProperty("#Actor.MovieExtraDetails", GUILocalizeStrings.Get(199) + " " +
-                                                                   ListItemMovieInfo(item).MovieCredits.Replace(" /", ",") + " : : : " +
+                                                                   ListItemMovieInfo(item).MovieCredits.Replace(" /", ",") + "  |  " +
                                                                    GUILocalizeStrings.Get(174) + " " +
-                                                                   ListItemMovieInfo(item).MovieGenre.Replace(" /", ",") + " : : : " +
+                                                                   ListItemMovieInfo(item).MovieGenre.Replace(" /", ",") + "  |  " +
                                                                    GUILocalizeStrings.Get(204) + " " +
-                                                                   ListItemMovieInfo(item).MovieMpaaRating + " : : : " +
+                                                                   ListItemMovieInfo(item).MovieMpaaRating + "  |  " +
                                                                    GUILocalizeStrings.Get(344) + ": " +
                                                                    ListItemMovieInfo(item).MovieCast.Replace(" /", ","));
         GUIPropertyManager.SetProperty("#Actor.MovieTitle", ListItemMovieInfo(item).MovieTitle);
@@ -838,7 +841,7 @@ namespace MediaPortal.GUI.Video
           
           if (!string.IsNullOrEmpty(thumb))
           {
-            Util.Utils.DownLoadAndCacheImage(thumb, temporaryFilename);
+            Util.Utils.DownLoadAndOverwriteCachedImage(thumb, temporaryFilename);
             // Convert downloaded image to large and small file and save on disk
             SaveCover(temporaryFilename, filenameL); // Temp file is deleted in SetCover method
           }
@@ -867,7 +870,8 @@ namespace MediaPortal.GUI.Video
                                     columnData,
                                     ListItemMovieInfo(item).MovieImdbID);
         bool error = false;
-        VideoDatabase.ExecuteSql(sql, out error);
+        string errorMessage = string.Empty;
+        VideoDatabase.ExecuteSql(sql, out error, out errorMessage);
       }
       catch (Exception) {}
     }
