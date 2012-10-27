@@ -1612,13 +1612,13 @@ namespace MediaPortal.GUI.Video
           }
           else
           {
-            MediaInfoWrapper mInfo = new MediaInfoWrapper(file);
+            VideoFilesMediaInfo mInfo = new VideoFilesMediaInfo();
 
             if (fileID > -1)
             {
-              // Set video file duration
-              VideoDatabase.SetVideoDuration(fileID, mInfo.VideoDuration / 1000);
-              TotalMovieDuration += mInfo.VideoDuration / 1000;
+              // Set/update video file duration and media info
+              VideoDatabase.GetVideoFilesMediaInfo(file, ref mInfo, refresh);
+              TotalMovieDuration += (int) mInfo.Duration;
             }
           }
         }
@@ -3169,10 +3169,13 @@ namespace MediaPortal.GUI.Video
         IMDBMovie movie = new IMDBMovie();
         VideoDatabase.GetMovieInfo(filename, ref movie);
 
-        if (!movie.IsEmpty && (playTimePercentage >= _watchedPercentage || g_Player.IsDVDMenu))
+        if (!movie.IsEmpty)
         //Flag movie "watched" status only if user % value or higher played time (database view)
         {
-          movie.Watched = 1;
+          if (playTimePercentage >= _watchedPercentage || g_Player.IsDVDMenu)
+          {
+            movie.Watched = 1;
+          }
           movie.DateWatched = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
           VideoDatabase.SetMovieInfoById(movie.ID, ref movie);
         }
