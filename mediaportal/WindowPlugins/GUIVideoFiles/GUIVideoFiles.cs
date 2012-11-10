@@ -943,7 +943,7 @@ namespace MediaPortal.GUI.Video
       CurrentSelectedGUIItem = pItem;
 
       if (pItem == null || pItem.IsRemote ||
-          !_virtualDirectory.RequestPin(pItem.Path) ||
+          !virtualDirectory.RequestPin(pItem.Path) ||
           pItem.IsFolder && (!pItem.IsBdDvdFolder || pItem.Label == ".."))
       {
         return;
