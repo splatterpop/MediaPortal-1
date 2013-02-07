@@ -51,8 +51,8 @@ using System.Reflection;
 // You can specify all the values or you can default the Revision and Build Numbers 
 // by using the '*' as shown below:
 
-[assembly: AssemblyVersion("1.2.300.2476")]
-[assembly: AssemblyFileVersion("1.2.300.2476")]
+[assembly: AssemblyVersion("1.2.300.0")]
+[assembly: AssemblyFileVersion("1.2.300.0")]
 
-[assembly: AssemblyInformationalVersion("1.2.0-2476-g35058a4-bluray-test")]
+//[assembly: AssemblyInformationalVersion("")]
 //[assembly: CompatibleVersion("1.1.8.*", "1.1.8.*")]
