@@ -305,7 +305,7 @@ namespace MediaPortal.GUI.Pictures
     private static string currentFolder = string.Empty;
     private string m_strDirectoryStart = string.Empty;
     private string destinationFolder = string.Empty;
-    private static VirtualDirectory virtualDirectory = new VirtualDirectory();
+    private static VirtualDirectory virtualDirectory = VirtualDirectories.Instance.Pictures; // new VirtualDirectory();
     private MapSettings mapSettings = new MapSettings();
     private bool isFileMenuEnabled = false;
     private string fileMenuPinCode = string.Empty;
@@ -345,6 +345,7 @@ namespace MediaPortal.GUI.Pictures
         isFileMenuEnabled = xmlreader.GetValueAsBool("filemenu", "enabled", true);
         fileMenuPinCode = Util.Utils.DecryptPin(xmlreader.GetValueAsString("filemenu", "pincode", string.Empty));
         string strDefault = xmlreader.GetValueAsString("pictures", "default", string.Empty);
+          /*
         virtualDirectory.Clear();
         for (int i = 0; i < VirtualDirectory.MaxSharesCount; i++)
         {
@@ -408,6 +409,8 @@ namespace MediaPortal.GUI.Pictures
             break;
           }
         }
+           */
+           
         if (xmlreader.GetValueAsBool("pictures", "rememberlastfolder", false))
         {
           string lastFolder = xmlreader.GetValueAsString("pictures", "lastfolder", currentFolder);
