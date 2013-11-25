@@ -2,17 +2,17 @@
 
 // Copyright (C) 2005-2011 Team MediaPortal
 // http://www.team-mediaportal.com
-//
+// 
 // MediaPortal is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 2 of the License, or
 // (at your option) any later version.
-//
+// 
 // MediaPortal is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
-//
+// 
 // You should have received a copy of the GNU General Public License
 // along with MediaPortal. If not, see <http://www.gnu.org/licenses/>.
 
@@ -41,24 +41,15 @@ namespace MediaPortal.GUI.Video
     private string _fileName = "";
     private string _program = "";
 
-    [SkinControl(0)]
-    protected GUIImage _videoRectangle = null;
-    [SkinControl(1)]
-    protected GUIVideoControl _videoWindow = null;
-    [SkinControl(2)]
-    protected GUILabelControl _labelPlayTime = null;
-    [SkinControl(3)]
-    protected GUIImage _imagePlayLogo = null;
-    [SkinControl(4)]
-    protected GUIImage _imagePauseLogo = null;
-    [SkinControl(5)]
-    protected GUIFadeLabel _labelInfo = null;
-    [SkinControl(6)]
-    protected GUIImage _labelBigPlayTime = null;
-    [SkinControl(7)]
-    protected GUIImage _imageFastForward = null;
-    [SkinControl(8)]
-    protected GUIImage _imageRewind = null;
+    [SkinControl(0)] protected GUIImage _videoRectangle = null;
+    [SkinControl(1)] protected GUIVideoControl _videoWindow = null;
+    [SkinControl(2)] protected GUILabelControl _labelPlayTime = null;
+    [SkinControl(3)] protected GUIImage _imagePlayLogo = null;
+    [SkinControl(4)] protected GUIImage _imagePauseLogo = null;
+    [SkinControl(5)] protected GUIFadeLabel _labelInfo = null;
+    [SkinControl(6)] protected GUIImage _labelBigPlayTime = null;
+    [SkinControl(7)] protected GUIImage _imageFastForward = null;
+    [SkinControl(8)] protected GUIImage _imageRewind = null;
 
     private string _thumbLogo = "";
     private bool _didRenderLastTime = false;
@@ -93,7 +84,7 @@ namespace MediaPortal.GUI.Video
       AllocResources();
     }
 
-    public override void Render(float timePassed) { }
+    public override void Render(float timePassed) {}
 
     private void OnUpdateState(bool render)
     {
@@ -235,7 +226,7 @@ namespace MediaPortal.GUI.Video
       }
 
       if (GUIGraphicsContext.Overlay == true && GUIGraphicsContext.Vmr9Active && GUIGraphicsContext.IsPlaying)
-      //&& GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
+        //&& GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
       {
         if (_videoWindow.Visible == false)
         {
@@ -244,7 +235,7 @@ namespace MediaPortal.GUI.Video
         return;
       }
       if (GUIGraphicsContext.Overlay == false && GUIGraphicsContext.Vmr9Active && GUIGraphicsContext.IsPlaying)
-      // && GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
+        // && GUIGraphicsContext.IsPlayingVideo && !GUIGraphicsContext.IsFullScreenVideo && !g_Player.FullScreen)
       {
         if (_videoWindow.Visible == true)
         {
@@ -257,13 +248,13 @@ namespace MediaPortal.GUI.Video
     /// <summary>
     /// Examines the current playing movie and fills in all the #tags for the skin.
     /// For movies it will look in the video database for any IMDB info
-    /// For record TV programs it will look in the TVDatabase for recording info
+    /// For record TV programs it will look in the TVDatabase for recording info 
     /// </summary>
     /// <param name="fileName">Filename of the current playing movie</param>
     /// <remarks>
     /// Function will fill in the following tags for TV programs
     /// #Play.Current.Title, #Play.Current.Plot, #Play.Current.PlotOutline #Play.Current.File, #Play.Current.Thumb, #Play.Current.Year, #Play.Current.Channel,
-    ///
+    /// 
     /// Function will fill in the following tags for movies
     /// #Play.Current.Title, #Play.Current.Plot, #Play.Current.PlotOutline #Play.Current.File, #Play.Current.Thumb, #Play.Current.Year
     /// #Play.Current.Director, #cast, #dvdlabel, #imdbnumber, #Play.Current.Plot, #Play.Current.PlotOutline, #rating, #tagline, #votes, #credits
@@ -297,7 +288,7 @@ namespace MediaPortal.GUI.Video
       {
         // for dvd's the file is in the form c:\media\movies\the matrix\video_ts\video_ts.ifo
         // first strip the \video_ts\video_ts.ifo
-        string lowPath = fileName.ToLower();
+        string lowPath = fileName.ToLowerInvariant();
         int index = lowPath.IndexOf("video_ts/");
         if (index < 0)
         {
@@ -310,7 +301,7 @@ namespace MediaPortal.GUI.Video
 
           // get the name by stripping the first part : c:\media\movies
           string strName = fileName;
-          int pos = fileName.LastIndexOfAny(new char[] { '\\', '/' });
+          int pos = fileName.LastIndexOfAny(new char[] {'\\', '/'});
           if (pos >= 0 && pos + 1 < fileName.Length - 1)
           {
             strName = fileName.Substring(pos + 1);
@@ -338,7 +329,7 @@ namespace MediaPortal.GUI.Video
       }
 
       bool isLive = g_Player.IsTimeShifting;
-      string extension = Util.Utils.GetFileExtension(fileName).ToLower();
+      string extension = Util.Utils.GetFileExtension(fileName).ToLowerInvariant();
       if (extension.Equals(".sbe") || extension.Equals(".dvr-ms") ||
           (extension.Equals(".ts") && !isLive || g_Player.IsTVRecording))
       {
@@ -450,7 +441,7 @@ namespace MediaPortal.GUI.Video
             string title = Util.Utils.GetFilename(fileName, true);
             GUIPropertyManager.SetProperty("#Play.Current.Title", title);
           }
-          else if (fileName.ToLower().Contains("index.bdmv")) // BD folder title check
+          else if (fileName.ToLowerInvariant().Contains("index.bdmv")) // BD folder title check
           {
             string title = selectBdHandler.GetDiscTitle(fileName);
             // get the name when play BD directly from Drive letter
@@ -473,10 +464,10 @@ namespace MediaPortal.GUI.Video
             }
             GUIPropertyManager.SetProperty("#Play.Current.Title", title);
           }
-          else if (fileName.ToLower().Contains(".mpls")) // BD folder title check (playlist)
+          else if (fileName.ToLowerInvariant().Contains(".mpls")) // BD folder title check (playlist)
           {
             // Check if index.bdmv is in the VDB
-            int index = fileName.ToLower().LastIndexOf(@"\playlist");
+            int index = fileName.ToLowerInvariant().LastIndexOf(@"\playlist");
             string name = fileName.Remove(index);
             name = name + @"\index.bdmv";
             if (VideoDatabase.HasMovieInfo(name))

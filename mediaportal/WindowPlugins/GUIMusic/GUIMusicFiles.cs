@@ -828,7 +828,7 @@ namespace MediaPortal.GUI.Music
             for (int x = 0; x < handler.Views.Count; ++x)
             {
               ViewDefinition view = (ViewDefinition)handler.Views[x];
-              if (view.Name.ToLower().IndexOf("artist") >= 0)
+              if (view.Name.ToLowerInvariant().IndexOf("artist") >= 0)
               {
                 viewNr = x;
               }
@@ -1126,7 +1126,7 @@ namespace MediaPortal.GUI.Music
         // Is this an album?
         if (tag != null && !string.IsNullOrEmpty(tag.Album))
         {
-          ShowAlbumInfo(tag.Artist, tag.Album, pItem.Path, tag);
+          ShowAlbumInfo(tag.Artist, tag.Album);
           facadeLayout.RefreshCoverArt();
         }
         else
@@ -1485,7 +1485,7 @@ namespace MediaPortal.GUI.Music
           // no need to get tags for folders in shares view
           continue;
         }
-        strExtension = Path.GetExtension(pItem.Path).ToLower();
+        strExtension = Path.GetExtension(pItem.Path).ToLowerInvariant();
 
         if (strExtension == ".cda")
         {
@@ -1786,7 +1786,7 @@ namespace MediaPortal.GUI.Music
         // this is to pick up if disc has been changed
         if (MusicCD != null)
         {
-          if (freedb.GetCDDBDiscID(driveLetter).ToLower() != MusicCD.DiscID)
+          if (freedb.GetCDDBDiscID(driveLetter).ToLowerInvariant() != MusicCD.DiscID)
           {
             MusicCD = null;
           }

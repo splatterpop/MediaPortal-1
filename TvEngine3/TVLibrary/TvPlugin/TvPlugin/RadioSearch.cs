@@ -38,9 +38,9 @@ namespace TvPlugin
   public class RadioSearch : GUIInternalWindow
   {
     [SkinControl(2)] protected GUISortButtonControl btnSortBy = null;
-    [SkinControl(4)] protected GUIToggleButtonControl btnSearchByGenre = null;
-    [SkinControl(5)] protected GUIToggleButtonControl btnSearchByTitle = null;
-    [SkinControl(6)] protected GUIToggleButtonControl btnSearchByDescription = null;
+    [SkinControl(4)] protected GUICheckButton btnSearchByGenre = null;
+    [SkinControl(5)] protected GUICheckButton btnSearchByTitle = null;
+    [SkinControl(6)] protected GUICheckButton btnSearchByDescription = null;
     [SkinControl(7)] protected GUISelectButtonControl btnLetter = null;
     [SkinControl(19)] protected GUIButtonControl btnSMSInput = null;
     [SkinControl(8)] protected GUISelectButtonControl btnShow = null;
@@ -163,15 +163,45 @@ namespace TvPlugin
     protected override void OnPageDestroy(int newWindowId)
     {
       base.OnPageDestroy(newWindowId);
-      listRecordings.Clear();
-      listRecordings = null;
+      if (TVHome.Connected)
+      {
+        listRecordings.Clear();
+        listRecordings = null;
+      }
       if (!GUIGraphicsContext.IsTvWindow(newWindowId)) {}
     }
 
     protected override void OnPageLoad()
     {
+      if (!TVHome.Connected)
+      {
+        RemoteControl.Clear();
+        GUIWindowManager.ActivateWindow((int)Window.WINDOW_SETTINGS_TVENGINE);
+        return;
+      }
+
       TVHome.WaitForGentleConnection();
-      
+
+      if (TVHome.Navigator == null)
+      {
+        TVHome.OnLoaded();
+      }
+      else if (TVHome.Navigator.Channel == null)
+      {
+        TVHome.m_navigator.ReLoad();
+        TVHome.LoadSettings(false);
+      }
+
+      // Create the channel navigator (it will load groups and channels)
+      if (TVHome.m_navigator == null)
+      {
+        TVHome.m_navigator = new ChannelNavigator();
+      }
+
+      // Reload ChannelGroups
+      Radio radioLoad = (Radio)GUIWindowManager.GetWindow((int)Window.WINDOW_RADIO);
+      radioLoad.OnAdded();
+
       base.OnPageLoad();
 
       listRecordings = Schedule.ListAll();

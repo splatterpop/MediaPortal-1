@@ -18,8 +18,6 @@
 
 #endregion
 
-#define NLS_PARABOLIC
-
 using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -30,8 +28,6 @@ using MediaPortal.Player.Subtitles;
 using Microsoft.DirectX;
 using Microsoft.DirectX.Direct3D;
 using Geometry = MediaPortal.GUI.Library.Geometry;
-using MediaPortal.Configuration;
-using MediaPortal.Profile;
 
 namespace MediaPortal.Player
 {
@@ -54,16 +50,6 @@ namespace MediaPortal.Player
   /// </summary>
   public class PlaneScene : IVMR9PresentCallback, IRenderLayer
   {
-    #region imports
-
-    [DllImport("fontEngine.dll", ExactSpelling = true, CharSet = CharSet.Auto, SetLastError = true)]
-    private static extern unsafe void FontEngineSetTexture(void* texture);
-
-    [DllImport("fontEngine.dll", ExactSpelling = true, CharSet = CharSet.Auto, SetLastError = true)]
-    private static extern unsafe void FontEngineSetAlphaBlend(UInt32 alphaBlend);
-
-    #endregion
-
     #region variables
 
     private bool _stopPainting = false;
@@ -113,14 +99,10 @@ namespace MediaPortal.Player
                                             };
 
     //The horizontal percentage of the destination to fit each partition into (Should be symmetrical and sum up to 100.0)
-    private float[] nlsDestPartitioning = 
-    {7.06f, 10.15f, 12.65f, 5.88f, 11.47f,  5.58f,  11.47f, 5.88f, 12.65f, 10.15f, 7.06f};
-//    {8.00f, 7.05f, 6.225f, 5.40f, 4.575f,  37.5f,  4.575f, 5.40f, 6.225f, 7.05f, 8.00f};
-
-      public float nlsStretchX = 1.10f;
-      public float nlsCenterZone = 0.6f;
-      public float nlsZoom = 1.10f;
-      private bool nlsCalculated = false;
+    private float[] nlsDestPartitioning = {
+                                            7.06f, 10.15f, 12.65f, 5.88f, 11.47f, 5.58f, 11.47f, 5.88f, 12.65f, 10.15f,
+                                            7.06f
+                                          };
 
     #endregion
 
@@ -157,7 +139,7 @@ namespace MediaPortal.Player
     #region properties
 
     /// <summary>
-    /// Returns a rectangle specifing the part of the video texture which is 
+    /// Returns a rectangle specifying the part of the video texture which is 
     /// shown
     /// </summary>
     public static Rectangle SourceRect
@@ -166,7 +148,7 @@ namespace MediaPortal.Player
     }
 
     /// <summary>
-    /// Returns a rectangle specifing the video window onscreen
+    /// Returns a rectangle specifying the video window onscreen
     /// </summary>
     public static Rectangle DestRect
     {
@@ -482,7 +464,7 @@ namespace MediaPortal.Player
         try
         {
           // Alert the frame grabber that it has a chance to grab a frame
-          // if it likes (method returns immediatly otherwise
+          // if it likes (method returns immediately otherwise
           grabber.OnFrame(width, height, arWidth, arHeight, pSurface);
 
           _textureAddress = pTexture;
@@ -525,6 +507,38 @@ namespace MediaPortal.Player
       return 0;
     }
 
+    public static void RenderFor3DMode(GUIGraphicsContext.eRender3DModeHalf renderModeHalf, float timePassed,
+                                       Surface backbuffer, Surface surface, Rectangle targetRect)
+    {
+      GUIGraphicsContext.DX9Device.SetRenderTarget(0, surface);
+
+      GUIGraphicsContext.DX9Device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
+
+      GUIGraphicsContext.DX9Device.BeginScene();
+      GUIGraphicsContext.SetScalingResolution(0, 0, false);
+
+      GUIGraphicsContext.Render3DModeHalf = renderModeHalf;
+
+      try
+      {
+        if (!GUIGraphicsContext.BlankScreen)
+        {
+          // Render GUI + Video surface
+          GUIGraphicsContext.RenderGUI.RenderFrame(timePassed);
+          GUIFontManager.Present();
+        }
+      }
+      finally
+      {
+        GUIGraphicsContext.DX9Device.EndScene();
+      }
+
+      GUIGraphicsContext.DX9Device.SetRenderTarget(0, backbuffer);
+      GUIGraphicsContext.DX9Device.StretchRectangle(surface,
+                                                    new Rectangle(0, 0, backbuffer.Description.Width,
+                                                                  backbuffer.Description.Height), backbuffer, targetRect,
+                                                    TextureFilter.Point);
+    }
 
     private void InternalPresentImage(int width, int height, int arWidth, int arHeight, bool isRepaint)
     {
@@ -589,16 +603,16 @@ namespace MediaPortal.Player
         if (_fadeFrameCounter < iMaxSteps)
         {
           // fade in
-          int iStep = 0xff / iMaxSteps;
+          int iStep = 0xff/iMaxSteps;
           if (_fadingIn)
           {
-            _diffuseColor = iStep * _fadeFrameCounter;
+            _diffuseColor = iStep*_fadeFrameCounter;
             _diffuseColor <<= 24;
             _diffuseColor |= 0xffffff;
           }
           else
           {
-            _diffuseColor = (iMaxSteps - iStep) * _fadeFrameCounter;
+            _diffuseColor = (iMaxSteps - iStep)*_fadeFrameCounter;
             _diffuseColor <<= 24;
             _diffuseColor |= 0xffffff;
           }
@@ -623,25 +637,106 @@ namespace MediaPortal.Player
         }
 
         //clear screen
-        GUIGraphicsContext.DX9Device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
 
         _debugStep = 5;
-        GUIGraphicsContext.DX9Device.BeginScene();
-        try
+
+        lock (GUIGraphicsContext.RenderModeSwitch)
         {
-          if (!GUIGraphicsContext.BlankScreen)
+          // in case of GUIGraphicsContext.BlankScreen == true always use old method
+          // for painting blank screen
+
+          if (GUIGraphicsContext.BlankScreen || GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.None ||
+              GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.SideBySideTo2D ||
+              GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.TopAndBottomTo2D)
           {
-            // Render GUI + Video surface
-            GUIGraphicsContext.RenderGUI.RenderFrame(timePassed);
-            GUIFontManager.Present();
+            // old output path or force 3D material to 2D by blitting only left/top halp
+
+            GUIGraphicsContext.Render3DModeHalf = GUIGraphicsContext.eRender3DModeHalf.None;
+
+            if (GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.SideBySideTo2D)
+              GUIGraphicsContext.Render3DModeHalf = GUIGraphicsContext.eRender3DModeHalf.SBSLeft;
+
+            if (GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.TopAndBottomTo2D)
+              GUIGraphicsContext.Render3DModeHalf = GUIGraphicsContext.eRender3DModeHalf.TABTop;
+
+            GUIGraphicsContext.DX9Device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
+            GUIGraphicsContext.DX9Device.BeginScene();
+
+            try
+            {
+              if (!GUIGraphicsContext.BlankScreen)
+              {
+                // Render GUI + Video surface
+                GUIGraphicsContext.RenderGUI.RenderFrame(timePassed);
+                GUIFontManager.Present();
+              }
+            }
+            finally
+            {
+              GUIGraphicsContext.DX9Device.EndScene();
+            }
+
+            GUIGraphicsContext.DX9Device.Present();
+          }
+          else if (GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.SideBySide ||
+                   GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.TopAndBottom)
+          {
+            // 3D output either SBS or TAB
+
+            Surface old = GUIGraphicsContext.DX9Device.GetRenderTarget(0);
+            Surface backbuffer = GUIGraphicsContext.DX9Device.GetBackBuffer(0, 0, BackBufferType.Mono);
+
+            // create texture/surface for preparation for 3D output if they don't exist
+
+            if (GUIGraphicsContext.Auto3DTexture == null)
+              GUIGraphicsContext.Auto3DTexture = new Texture(GUIGraphicsContext.DX9Device,
+                                                             backbuffer.Description.Width,
+                                                             backbuffer.Description.Height, 0, Usage.RenderTarget,
+                                                             backbuffer.Description.Format, Pool.Default);
+
+            if (GUIGraphicsContext.Auto3DSurface == null)
+              GUIGraphicsContext.Auto3DSurface = GUIGraphicsContext.Auto3DTexture.GetSurfaceLevel(0);
+
+            if (GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.SideBySide)
+            {
+              // left half
+              RenderFor3DMode(GUIGraphicsContext.eRender3DModeHalf.SBSLeft, timePassed, backbuffer,
+                              GUIGraphicsContext.Auto3DSurface,
+                              new Rectangle(0, 0, backbuffer.Description.Width/2, backbuffer.Description.Height));
+
+              // right half
+              RenderFor3DMode(GUIGraphicsContext.eRender3DModeHalf.SBSRight, timePassed, backbuffer,
+                              GUIGraphicsContext.Auto3DSurface,
+                              new Rectangle(backbuffer.Description.Width/2, 0, backbuffer.Description.Width/2,
+                                            backbuffer.Description.Height));
+            }
+            else
+            {
+              // upper half
+              RenderFor3DMode(GUIGraphicsContext.eRender3DModeHalf.TABTop, timePassed, backbuffer,
+                              GUIGraphicsContext.Auto3DSurface,
+                              new Rectangle(0, 0, backbuffer.Description.Width, backbuffer.Description.Height/2));
+
+              // lower half
+              RenderFor3DMode(GUIGraphicsContext.eRender3DModeHalf.TABBottom, timePassed, backbuffer,
+                              GUIGraphicsContext.Auto3DSurface,
+                              new Rectangle(0, backbuffer.Description.Height/2, backbuffer.Description.Width,
+                                            backbuffer.Description.Height/2));
+            }
+
+            // for a 3D movie with subtitles generated by a 3D subtitle tool, we render the subtitle here instead of in RenderLayer()
+
+            if (!GUIGraphicsContext.Render3DSubtitle)
+            {
+              SubtitleRenderer.GetInstance().Render();
+              SubEngine.GetInstance().Render(_subsRect, _destinationRect);
+            }
+
+            GUIGraphicsContext.DX9Device.Present();
+            backbuffer.Dispose();
           }
         }
-        finally
-        {
-          GUIGraphicsContext.DX9Device.EndScene();
-        }
 
-        GUIGraphicsContext.DX9Device.Present();
         _debugStep = 20;
       }
       catch (DeviceLostException)
@@ -741,124 +836,20 @@ namespace MediaPortal.Player
       unsafe
       {
         IntPtr ptr = new IntPtr(texAddr);
-        FontEngineSetTexture(ptr.ToPointer());
+        DXNative.FontEngineSetTexture(ptr.ToPointer());
 
-        GUIGraphicsContext.DX9Device.SamplerState[0].MinFilter = TextureFilter.Linear;
-        GUIGraphicsContext.DX9Device.SamplerState[0].MagFilter = TextureFilter.Linear;
-        GUIGraphicsContext.DX9Device.SamplerState[0].MipFilter = TextureFilter.Linear;
-        GUIGraphicsContext.DX9Device.SamplerState[0].AddressU = TextureAddress.Clamp;
-        GUIGraphicsContext.DX9Device.SamplerState[0].AddressV = TextureAddress.Clamp;
+        DXNative.FontEngineSetSamplerState(0, (int)D3DSAMPLERSTATETYPE.D3DSAMP_MINFILTER, (int)D3DTEXTUREFILTERTYPE.D3DTEXF_LINEAR);
+        DXNative.FontEngineSetSamplerState(0, (int)D3DSAMPLERSTATETYPE.D3DSAMP_MAGFILTER, (int)D3DTEXTUREFILTERTYPE.D3DTEXF_LINEAR);
+        DXNative.FontEngineSetSamplerState(0, (int)D3DSAMPLERSTATETYPE.D3DSAMP_MIPFILTER, (int)D3DTEXTUREFILTERTYPE.D3DTEXF_LINEAR);
+        DXNative.FontEngineSetSamplerState(0, (int)D3DSAMPLERSTATETYPE.D3DSAMP_ADDRESSU, (int)D3DTEXTUREADDRESS.D3DTADDRESS_CLAMP);
+        DXNative.FontEngineSetSamplerState(0, (int)D3DSAMPLERSTATETYPE.D3DSAMP_ADDRESSV, (int)D3DTEXTUREADDRESS.D3DTADDRESS_CLAMP);
+
         GUIGraphicsContext.DX9Device.VertexFormat = CustomVertex.TransformedColoredTextured.Format;
 
-        FontEngineSetAlphaBlend(0); //FALSE
+        DXNative.FontEngineSetRenderState((int)D3DRENDERSTATETYPE.D3DRS_ALPHABLENDENABLE, 0);
 
         if (_useNonLinearStretch)
         {
-            if (nlsCalculated == false)
-            {
-                using (Settings xmlreader = new Settings(Config.GetFile(Config.Dir.Config, "MediaPortal.xml")))
-                {
-                    nlsCenterZone = (float)xmlreader.GetValueAsInt("nls", "center zone", 50) / 100.0f;
-                    nlsZoom = (float)xmlreader.GetValueAsInt("nls", "zoom", 115) / 100.0f;
-                    nlsStretchX = (float)xmlreader.GetValueAsInt("nls", "stretchx", 103) / 100.0f;
-                }
-
-                // number of partitions
-                int r = 10;
-
-                // re-allocate partitioning
-                nlsSourcePartitioning = new float[2 * r + 1];
-                nlsDestPartitioning = new float[2 * r + 1];
-
-                // free and re-allocate vertex buffers
-                for (int i = 0; i < _vertexBuffers.Length; i++)
-                {
-                    if (_vertexBuffers[i] != null)
-                    {
-                        _vertexBuffers[i].Dispose();
-                        _vertexBuffers[i] = null;
-                    }
-                }
-                _vertexBuffers = new VertexBuffer[2 * r + 1];
-                for (int i = 0; i < _vertexBuffers.Length; i++)
-                {
-                    _vertexBuffers[i] = new VertexBuffer(typeof(CustomVertex.TransformedColoredTextured),
-                                                        4,
-                                                        GUIGraphicsContext.DX9Device,
-                                                        0,
-                                                        CustomVertex.TransformedColoredTextured.Format,
-                                                        GUIGraphicsContext.GetTexturePoolType());
-                }
-
-#if NLS_LINEAR
-                //--------------------- linear growth -------------------------
-                float m = nlsCenterZone;
-                float b = nlsStretchX * nlsZoom;
-
-                // output frame to source frame ratio
-                float V = 4.0f / 3.0f;
-                
-                // source partitioning
-                float T = 100.0f * (1.0f - nlsCenterZone) / (2.0f * r);
- 
-                float p = ( (V - m * b) / (1.0f - m) - b) * 2.0f / (r + 1.0f);
-
-                // center zone
-                nlsSourcePartitioning[r] = 100.0f * nlsCenterZone;
-                nlsDestPartitioning[r] = 100.0f * m * b / V;
-
-                // partition zones
-                for (int i = 1; i <= r; i++)
-                {
-                    nlsSourcePartitioning[r - i] = T;
-                    nlsSourcePartitioning[r + i] = nlsSourcePartitioning[r - i];
-                    nlsDestPartitioning[r - i] = (p * (float)i + b) * T / V ;
-                    nlsDestPartitioning[r + i] = nlsDestPartitioning[r - i];
-                }
-#endif
-
-#if NLS_PARABOLIC
-                //--------------------- parabolic growth -------------------------
-                float c = nlsCenterZone;
-                float sx = nlsStretchX * nlsZoom;
-                int z = 10;
-                float Y = (16.0f / 12.0f / sx - c) / 2;
-                float X = (1 - c) / 2;
-                float d = X / z;
-                float g = (Y / d - z) * 6 / z / (z + 1) / (2 * z + 1);
-                // output frame to source frame ratio
-                float V = 4.0f / 3.0f;
-
-                // center zone
-                nlsSourcePartitioning[r] = 100.0f * nlsCenterZone;
-                nlsDestPartitioning[r] = 100.0f * nlsCenterZone * sx / V; // necessary because dest partitions also sum up to 100%
-
-                // partition zones
-                for (int i = 1; i <= r; i++)
-                {
-                    nlsSourcePartitioning[r - i] = d * 100.0f;
-                    nlsSourcePartitioning[r + i] = nlsSourcePartitioning[r - i];
-                    nlsDestPartitioning[r - i] = d * (1 + g * i * i) / V * 100.0f * sx;
-                    nlsDestPartitioning[r + i] = nlsDestPartitioning[r - i];
-                }
-
-#endif
-
-#if DEBUG
-                float s1 = 0.0f, s2 = 0.0f;
-                float[] fRatios = new float[2*r +1];
-                for (int i = 0; i < nlsSourcePartitioning.Length; i++)
-                {
-                    s1 += nlsSourcePartitioning[i];
-                    s2 += nlsDestPartitioning[i];
-                    fRatios[i] = nlsDestPartitioning[i] / nlsSourcePartitioning[i] * V;
-                }
-#endif
-                
-
-                nlsCalculated = true;
-            }
-
           //draw/stretch each partition separately according to NLS table
 
           //top and bottom remain untouched.
@@ -871,7 +862,6 @@ namespace MediaPortal.Player
           float dstLeftFloat = _destinationRect.Left;
           int dstRight = dstLeft;
           float dstRightFloat = (float)dstLeft;
-
           for (int i = 0; i < nlsSourcePartitioning.Length; i++)
           {
             //this left is the previous right
@@ -881,10 +871,11 @@ namespace MediaPortal.Player
             dstLeftFloat = dstRightFloat;
 
             //calculate new right
-            srcRightFloat = srcLeftFloat + (nlsSourcePartitioning[i] * (float)_sourceRect.Width / 100.0f);
-            dstRightFloat = dstLeftFloat + (nlsDestPartitioning[i] * (float)_destinationRect.Width / 100.0f);
-            srcRight = (int)(srcRightFloat + 0.5f);
-            dstRight = (int)(dstRightFloat + 0.5f);
+            srcRightFloat = srcLeftFloat + (int)(nlsSourcePartitioning[i] * (float)_sourceRect.Width / 100.0f);
+            dstRightFloat = dstLeftFloat + (int)(nlsDestPartitioning[i] * (float)_destinationRect.Width / 100.0f);
+            srcRight = (int)srcRightFloat;
+            dstRight = (int)dstRightFloat;
+
 
             DrawTextureSegment(_vertexBuffers[i],
                                srcLeft,
@@ -986,7 +977,90 @@ namespace MediaPortal.Player
 
         if (_textureAddress != 0)
         {
+          Rectangle originalDestination = _destinationRect;
+          Rectangle originalSource = _sourceRect;
+
+          if (GUIGraphicsContext.Render3DMode != GUIGraphicsContext.eRender3DMode.None)
+          {
+            if (originalDestination.Width > 512) // full size mode
+            {
+              switch (GUIGraphicsContext.Render3DModeHalf)
+              {
+                case GUIGraphicsContext.eRender3DModeHalf.SBSLeft:
+
+                  _destinationRect.Width = originalDestination.Width*2;
+                  break;
+
+                case GUIGraphicsContext.eRender3DModeHalf.SBSRight:
+
+                  _destinationRect.Width = originalDestination.Width*2;
+                  _destinationRect.X = -_destinationRect.Width/2;
+                  break;
+
+                case GUIGraphicsContext.eRender3DModeHalf.TABTop:
+
+                  _destinationRect.Height = originalDestination.Height*2;
+                  break;
+
+                case GUIGraphicsContext.eRender3DModeHalf.TABBottom:
+
+                  _destinationRect.Height = originalDestination.Height*2;
+                  _destinationRect.Y = -(originalDestination.Height - _destinationRect.Y);
+                  break;
+              }
+            }
+            else // assume mini display mode 3D : Is there another way to check if target is mini display?
+            {
+              switch (GUIGraphicsContext.Render3DModeHalf)
+              {
+                case GUIGraphicsContext.eRender3DModeHalf.SBSLeft:
+
+                  _sourceRect.Width = originalSource.Width/2;
+                  break;
+
+                case GUIGraphicsContext.eRender3DModeHalf.SBSRight:
+
+                  _sourceRect.Width = originalSource.Width/2;
+                  _sourceRect.X = originalSource.Width/2;
+                  break;
+
+                case GUIGraphicsContext.eRender3DModeHalf.TABTop:
+
+                  _sourceRect.Height = originalSource.Height/2;
+                  break;
+
+                case GUIGraphicsContext.eRender3DModeHalf.TABBottom:
+
+                  _sourceRect.Height = originalSource.Height/2;
+                  _sourceRect.Y = originalSource.Height/2;
+                  break;
+              }
+            }
+          }
+
           DrawTexture(_textureAddress, _diffuseColor);
+
+          _destinationRect = originalDestination;
+          _sourceRect = originalSource;
+
+          // in TAB-Mode the Video texture is repeated at the bottom. For widescreen material we have to clear this
+
+          if (GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.TopAndBottom ||
+              GUIGraphicsContext.Render3DMode == GUIGraphicsContext.eRender3DMode.TopAndBottomTo2D)
+          {
+            if (originalDestination.Width > 512) // full size mode
+            {
+              Rectangle[] rectTop = {new Rectangle(0, 0, originalDestination.Width, originalDestination.Top)};
+              GUIGraphicsContext.DX9Device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0, rectTop);
+
+              Rectangle[] rectBottom =
+                {
+                  new Rectangle(0, originalDestination.Bottom, originalDestination.Width,
+                                GUIGraphicsContext.Height - originalDestination.Bottom + 1)
+                };
+              GUIGraphicsContext.DX9Device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0, rectBottom);
+            }
+          }
         }
       }
       else
@@ -995,8 +1069,46 @@ namespace MediaPortal.Player
         RenderBlackImage(timePassed);
         GUIGraphicsContext.RenderBlackImage = false;
       }
+
       SubtitleRenderer.GetInstance().Render();
-      SubEngine.GetInstance().Render(_subsRect, _destinationRect);
+
+      if (GUIGraphicsContext.Render3DModeHalf == GUIGraphicsContext.eRender3DModeHalf.None)
+      {
+        // for a 2D movie we render the subtitles here
+
+        SubEngine.GetInstance().Render(_subsRect, _destinationRect);
+      }
+      else if (GUIGraphicsContext.Render3DModeHalf == GUIGraphicsContext.eRender3DModeHalf.SBSLeft ||
+               GUIGraphicsContext.Render3DModeHalf == GUIGraphicsContext.eRender3DModeHalf.TABTop)
+      {
+        // for a 3D movie we render the left/top frame subtitle here
+        // if Render3DSubtitle is turned off, rendering takes place in InternalPresentImage()
+        // this helps to avoid doubling of subtitles that are generated by external tools
+
+        if (GUIGraphicsContext.Render3DSubtitle)
+        {
+          SubEngine.GetInstance().Render(_subsRect, _destinationRect);
+        }
+      }
+      else if (GUIGraphicsContext.Render3DModeHalf == GUIGraphicsContext.eRender3DModeHalf.SBSRight ||
+               GUIGraphicsContext.Render3DModeHalf == GUIGraphicsContext.eRender3DModeHalf.TABBottom)
+      {
+        // for a 3D movie we render the right/bottom frame subtitle here
+        // if Render3DSubtitle is turned off, rendering takes place in InternalPresentImage()
+        // this helps to avoid doubling of subtitles that are generated by external tools
+
+        if (GUIGraphicsContext.Render3DSubtitle)
+        {
+          Rectangle subRect = _subsRect;
+          Rectangle dstRect = _destinationRect;
+
+          subRect.X += GUIGraphicsContext.Render3DSubtitleDistance;
+          dstRect.X += GUIGraphicsContext.Render3DSubtitleDistance;
+
+          SubEngine.GetInstance().Render(subRect, dstRect);
+        }
+      }
+
       BDOSDRenderer.GetInstance().Render();
     }
 

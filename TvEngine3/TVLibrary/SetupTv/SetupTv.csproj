@@ -14,11 +14,12 @@
     </Win32Resource>
     <ApplicationIcon>images\icon.mpConfig.ico</ApplicationIcon>
     <ApplicationManifest>SetupTv.exe.manifest</ApplicationManifest>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
     <OldToolsVersion>3.5</OldToolsVersion>
     <UpgradeBackupLocation />
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -570,6 +571,10 @@
     <ProjectReference Include="..\TvService\TvService.csproj">
       <Project>{3BE4F3AA-36EB-4956-B000-E29C74FC6AB0}</Project>
       <Name>TvService</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TvThumbnails\TvThumbnails.csproj">
+      <Project>{95F4BF8F-5664-40C9-8DA8-C5E9B79B8115}</Project>
+      <Name>TvThumbnails</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
