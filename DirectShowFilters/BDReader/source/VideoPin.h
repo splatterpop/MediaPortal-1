@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+//<<<<<<< HEAD
 /*
  *  Copyright (C) 2005-2011 Team MediaPortal
  *  http://www.team-mediaportal.com
@@ -120,7 +120,8 @@ protected:
   bool m_bZeroStreamOffset;
 };
 
-=======
+
+// =======
 /*
  *  Copyright (C) 2005-2011 Team MediaPortal
  *  http://www.team-mediaportal.com
@@ -141,7 +142,7 @@ protected:
  *  http://www.gnu.org/copyleft/gpl.html
  *
  */
-
+ /*
 #pragma once
 
 #include "bdreader.h"
@@ -245,3 +246,4 @@ protected:
 };
 
 >>>>>>> remotes/origin/EXP-MyVideos_InternalPlayer_BluRaySupport_and_Menu
+*/

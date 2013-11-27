@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+//<<<<<<< HEAD
 /**
 *  MediaFormats.h
 *  Copyright (C) 2004-2006 bear
@@ -99,7 +99,7 @@ static GUID WVC1_SubType = {0x31435657, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 
 static GUID MEDIASUBTYPE_BD_LPCM_AUDIO = {0xa23eb7fc, 0x510b, 0x466f, 0x9f, 0xbf, 0x5f, 0x87, 0x8f, 0x69, 0x34, 0x7c};
 
 #endif
-=======
+//=======
 /**
 *  MediaFormats.h
 *  Copyright (C) 2004-2006 bear
@@ -124,7 +124,7 @@ static GUID MEDIASUBTYPE_BD_LPCM_AUDIO = {0xa23eb7fc, 0x510b, 0x466f, 0x9f, 0xbf
 *  bear can be reached on the forums at
 *    http://forums.dvbowners.com/
 */
-
+/*
 #ifndef MEDIAFORMATS_H
 #define MEDIAFORMATS_H
 
@@ -137,14 +137,14 @@ static BYTE AC3AudioFormat [] = {
 	0x00, 0x00,				//wBitsPerSample
 	0x00, 0x00				//cbSize
 };
-
+*/
 /*
 static GUID MEDIASUBTYPE_ARCSOFT_MLP =    {0x4288b843, 0x610b, 0x4e15 ,0xa5, 0x3b, 0x43, 0x00, 0x7f, 0xcf, 0xf6, 0x14};
 static GUID MEDIASUBTYPE_NERO_MLP =       {0x1e889be7, 0xb276, 0x4064 ,0x9a, 0x39, 0x16, 0x0a, 0x06, 0x89, 0x5b, 0x52};
 static GUID MEDIASUBTYPE_SONIC_MLP =      {0x4094a857, 0x7891, 0x44ac, 0x92, 0xb5, 0xc1, 0xcf, 0xf3, 0x7a, 0xf2, 0xe7};
 static GUID MEDIASUBTYPE_ARCSOFT_DTSHD =  {0xf6498f57, 0xb399, 0x4a43, 0xa6, 0xfa, 0xf6, 0x94, 0xad, 0x42, 0xb9, 0xbe};
 */
-
+/*
 static GUID  WAVE_FORMAT_MLP = FOURCCMap(MAKEFOURCC('M','L','P',' ')) ;
 
 struct WAVEFORMATEX_HDMV_LPCM : public WAVEFORMATEX
@@ -200,3 +200,4 @@ static GUID MEDIASUBTYPE_BD_LPCM_AUDIO = {0xa23eb7fc, 0x510b, 0x466f, 0x9f, 0xbf
 
 #endif
 >>>>>>> remotes/origin/EXP-MyVideos_InternalPlayer_BluRaySupport_and_Menu
+*/

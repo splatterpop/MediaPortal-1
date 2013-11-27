@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+// <<<<<<< HEAD
 /*
  *  Copyright (C) 2005-2011 Team MediaPortal
  *  http://www.team-mediaportal.com
@@ -294,7 +294,8 @@ private:
   bool m_bRebuildOngoing;
   CAMEvent m_eRebuild;
 };
-=======
+
+// =======
 /*
  *  Copyright (C) 2005-2011 Team MediaPortal
  *  http://www.team-mediaportal.com
@@ -316,6 +317,7 @@ private:
  *
  */
 
+ /*
 #pragma once
 #include <bluray.h>
 #include <map>
@@ -582,3 +584,4 @@ private:
   CAMEvent m_eRebuild;
 };
 >>>>>>> remotes/origin/EXP-MyVideos_InternalPlayer_BluRaySupport_and_Menu
+*/
