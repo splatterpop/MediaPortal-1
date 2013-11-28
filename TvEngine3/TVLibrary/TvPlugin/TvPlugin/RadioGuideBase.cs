@@ -47,7 +47,7 @@ namespace TvPlugin
   {
     #region constants  
 
-    private const int GUIDE_COMPONENTID_START = 50000;
+    // private const int GUIDE_COMPONENTID_START = 50000;
     // Start for numbering IDs of automaticaly generated TVguide components for channels and programs
 
     private int _loopDelay = 100; // wait at the last item this amount of msec until loop to the first item
