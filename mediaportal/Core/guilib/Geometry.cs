@@ -388,7 +388,7 @@ namespace MediaPortal.GUI.Library
                       float fa = 0.9f;
                       float fb = 1.1f;
                       float fc = 1.3f;
-                      Log.Info("NLS: image wideness: {0}", wideness);
+                      Log.Debug("NLS: image wideness: {0}", wideness);
                       //For 16:10 screens the cropping should not be done, which fixes the aspect ratio issue within tolerable accuracy
                       if ((fScreenRatio < 1.61) && (fScreenRatio > 1.59))
                       {
@@ -451,9 +451,9 @@ namespace MediaPortal.GUI.Library
 
         case Type.Zoom14to9:
           {
-              if ((float)croppedImageWidth/(float)croppedImageHeight * ScreenHeight <= ScreenWidth)
+              if (fCroppedOutputFrameRatio * (float)ScreenHeight <= ScreenWidth)
               {
-                  // screen is wider than image - fall back to NORMAL mode
+                  Log.Debug("Zoom14to9: screen is wider than image - fall back to NORMAL mode");
                   // maximize the movie width
                   float fNewWidth = (float)ScreenWidth;
                   float fNewHeight = (float)(fNewWidth / fCroppedOutputFrameRatio);
@@ -482,7 +482,7 @@ namespace MediaPortal.GUI.Library
               }
               else
               {
-                  // image is wider than screen
+                   Log.Debug("Zoom14to9: image is wider than screen");
                   /*
                    1 crop image left and right
                    2 letterbox top and bottom
@@ -495,12 +495,19 @@ namespace MediaPortal.GUI.Library
                   float fnewIH = (float)fnewIW / fCroppedOutputFrameRatio;
                   float B = (ScreenHeight - fnewIH) / 2.0f; // letterbox in screen coordinates
                   float C = (fnewIW - ScreenWidth) / 2.0f / f; // crop in source image coordinates
+                  Log.Debug("Zoom14to9: f1={0}", f1);
+                  Log.Debug("Zoom14to9: f2={0}", f2);
+                  Log.Debug("Zoom14to9: f ={0}", f);
+                  Log.Debug("Zoom14to9: B ={0}", B);
+                  Log.Debug("Zoom14to9: C ={0}", C);
 
                   rSource = new Rectangle(cropSettings.Left + (int)C, cropSettings.Top, croppedImageWidth - (int)(2.0f*C), croppedImageHeight);
                   rDest = new Rectangle(0, 
                                         (int)B, 
                                         ScreenWidth,
                                         ScreenHeight - (int)(2.0f * B));
+                  Log.Debug("Zoom14to9: rSource=" + rSource.ToString());
+                  Log.Debug("Zoom14to9: rDest  =" + rDest.ToString());
               }
           }
           break;

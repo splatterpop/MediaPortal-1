@@ -284,7 +284,7 @@ namespace MediaPortal.Player
       lock (this)
       {
         _cropSettings = cs;
-        Log.Info("PlaneScene: Crop: top:{0}, bottom:{1}, left:{2}, right:{3}", cs.Top, cs.Bottom, cs.Left, cs.Right);
+        Log.Debug("PlaneScene: Crop: top:{0}, bottom:{1}, left:{2}, right:{3}", cs.Top, cs.Bottom, cs.Left, cs.Right);
         updateCrop = true;
       }
     }
