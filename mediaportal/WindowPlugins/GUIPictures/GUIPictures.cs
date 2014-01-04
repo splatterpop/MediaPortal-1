@@ -57,7 +57,7 @@ namespace MediaPortal.GUI.Pictures
 
     public class MissingThumbCacher
     {
-      private VirtualDirectory vDir = new VirtualDirectory();
+        private VirtualDirectory vDir = Util.VirtualDirectories.Instance.Pictures; // new VirtualDirectory();
 
       private string _filepath = string.Empty;
       private bool _createLarge = true;
@@ -88,7 +88,7 @@ namespace MediaPortal.GUI.Pictures
         bool recreateThumbs = _recreateWithoutCheck;
         List<GUIListItem> itemlist = null;
 
-        vDir.SetExtensions(Util.Utils.PictureExtensions);
+        // vDir.SetExtensions(Util.Utils.PictureExtensions);
 
         if (!vDir.IsRemote(path))
         {
