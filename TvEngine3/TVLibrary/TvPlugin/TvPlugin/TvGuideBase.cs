@@ -157,7 +157,7 @@ namespace TvPlugin
         if (_mpGenres == null)
         {
           _mpGenres = RemoteControl.Instance.GetMpGenres();
-        }
+      }
       }
 
       // Load settings defined by the skin.
@@ -212,10 +212,10 @@ namespace TvPlugin
       _showGenreKey = false;
       temp = GUIPropertyManager.GetProperty("#skin.tvguide.showgenrekey");
       if (temp != null && temp.Length != 0)
-      {
+    {
         _showGenreKey = bool.Parse(temp);
-      }
-    }
+          }
+          }
 
     private bool LoadGuideColors(Settings xmlreader)
     {
@@ -514,7 +514,7 @@ namespace TvPlugin
             }
             return;
           }
-          //break;
+        //break;
         case Action.ActionType.ACTION_SHOW_INFO:
           {
             ShowContextMenu();
@@ -576,7 +576,7 @@ namespace TvPlugin
         case Action.ActionType.ACTION_TVGUIDE_DECREASE_DAY:
           OnPreviousDay();
           break;
-          // TV group changing actions
+        // TV group changing actions
         case Action.ActionType.ACTION_TVGUIDE_NEXT_GROUP:
           OnChangeChannelGroup(1);
           break;
@@ -839,8 +839,8 @@ namespace TvPlugin
                 {
                   _currentChannel = TVHome.Navigator.Channel;
                   PositionGuideCursorToCurrentChannel();
-                }
-              }
+                    }
+                  }
               // Mantis 3579: the above lines can lead to too large channeloffset. 
               // Now we check if the offset is too large, and if it is, we reduce it and increase the cursor position accordingly
               if (!_guideContinuousScroll && (ChannelOffset > _channelList.Count - _channelCount))
@@ -926,7 +926,7 @@ namespace TvPlugin
               UpdateCurrentProgram();
               return true;
             }
-            //break;
+          //break;
 
           case GUIMessage.MessageType.GUI_MSG_CLICKED:
             int iControl = message.SenderControlId;
@@ -969,9 +969,9 @@ namespace TvPlugin
                 // Tuning a channel was attempted.  Save the channel setting to ensure that the guide channel selection is in sync
                 // with the desired (the channel may not be playing) channel selection.
                 SaveSettings();
-                Update(false);
-                SetFocus();
-              }
+              Update(false);
+              SetFocus();
+            }
             }
             else if (_cursorY == 0)
             {
@@ -1388,8 +1388,8 @@ namespace TvPlugin
             if (_useColorsForButtons)
             {
               img.ColourDiffuse = _guideColorChannelButton;
-            }
           }
+        }
         }
         chan++;
       }
@@ -1864,16 +1864,16 @@ namespace TvPlugin
             // Use of the button template control implies use of the icon.  Use a blank image if the icon is not desired.
             if (bConflict)
             {
-              img.TexutureIcon = Thumbs.TvConflictRecordingIcon;
-            }
-            else if (bSeries)
-            {
-              img.TexutureIcon = Thumbs.TvRecordingSeriesIcon;
-            }
-            else
-            {
-              img.TexutureIcon = Thumbs.TvRecordingIcon;
-            }
+                img.TexutureIcon = Thumbs.TvConflictRecordingIcon;
+              }
+              else if (bSeries)
+              {
+                img.TexutureIcon = Thumbs.TvRecordingSeriesIcon;
+              }
+              else
+              {
+                img.TexutureIcon = Thumbs.TvRecordingIcon;
+              }
             img.IconOffsetX = buttonRecordTemplate.IconOffsetX;
             img.IconOffsetY = buttonRecordTemplate.IconOffsetY;
             img.IconAlign = buttonRecordTemplate.IconAlign;
@@ -1921,6 +1921,12 @@ namespace TvPlugin
           }
         }
 
+        // highlight currently running program
+        if (TVHome.Card.IdChannel == program.IdChannel && program.IsRunningAt(DateTime.Now))
+        {
+            img.TextColor1 = 0xffff8080;
+		}
+
         if (_useColorsForButtons)
         {
           if (program.IsRunningAt(DateTime.Now))
@@ -1957,6 +1963,8 @@ namespace TvPlugin
       int channelNum = 0;
       Channel channel = tvGuideChannel.channel;
 
+      IList<PersonalTVGuideMap> ptvgm = PersonalTVGuideMap.ListAll();
+
       if (!_byIndex)
       {
         channelNum = channel.ChannelNumber;
@@ -1987,7 +1995,7 @@ namespace TvPlugin
         if (_useColorsForButtons)
         {
           img.ColourDiffuse = _guideColorChannelButton;
-        }
+      }
       }
 
 
@@ -2306,16 +2314,16 @@ namespace TvPlugin
               // Use of the button template control implies use of the icon.  Use a blank image if the icon is not desired.
               if (bConflict)
               {
-                img.TexutureIcon = Thumbs.TvConflictRecordingIcon;
-              }
-              else if (bSeries)
-              {
-                img.TexutureIcon = Thumbs.TvRecordingSeriesIcon;
-              }
-              else
-              {
-                img.TexutureIcon = Thumbs.TvRecordingIcon;
-              }
+                  img.TexutureIcon = Thumbs.TvConflictRecordingIcon;
+                }
+                else if (bSeries)
+                {
+                  img.TexutureIcon = Thumbs.TvRecordingSeriesIcon;
+                }
+                else
+                {
+                  img.TexutureIcon = Thumbs.TvRecordingIcon;
+                }
               img.IconOffsetX = buttonRecordTemplate.IconOffsetX;
               img.IconOffsetY = buttonRecordTemplate.IconOffsetY;
               img.IconAlign = buttonRecordTemplate.IconAlign;
@@ -2392,11 +2400,11 @@ namespace TvPlugin
               {
                 img.TexutureIcon2 = "tvguide_hd_program.png";
                 img.Icon2Align = GUIControl.Alignment.ALIGN_LEFT;
-                img.Icon2VAlign = GUIControl.VAlignment.ALIGN_MIDDLE;
-                img.Icon2OffsetX = 5;
+            img.Icon2VAlign = GUIControl.VAlignment.ALIGN_MIDDLE;
+            img.Icon2OffsetX = 5;
                 img.Icon2OffsetY = 0;
                 img.Icon2InlineLabel1 = true;
-              }
+          }
             }
           }
           img.Data = program.Clone();
@@ -2545,8 +2553,8 @@ namespace TvPlugin
             // Texture names already set if using template.
             if (_programNotRunningTemplate == null)
             {
-              TexutureFocusRightName = "tvguide_arrow_selected_right.png";
-              TexutureNoFocusRightName = "tvguide_arrow_light_right.png";
+            TexutureFocusRightName = "tvguide_arrow_selected_right.png";
+            TexutureNoFocusRightName = "tvguide_arrow_light_right.png";
             }
 
             if (program.IsRunningAt(dt) && _programRunningTemplate == null)
@@ -2560,8 +2568,8 @@ namespace TvPlugin
 
             if (_programNotRunningTemplate == null)
             {
-              TexutureFocusLeftName = "tvguide_arrow_selected_left.png";
-              TexutureNoFocusLeftName = "tvguide_arrow_light_left.png";
+            TexutureFocusLeftName = "tvguide_arrow_selected_left.png";
+            TexutureNoFocusLeftName = "tvguide_arrow_light_left.png";
             }
 
             if (program.IsRunningAt(dt) && _programRunningTemplate == null)
@@ -2617,6 +2625,25 @@ namespace TvPlugin
           else
             img.DoUpdate();
           iProgram++;
+
+
+            // color curently watching program in red
+            if (TVHome.Card.IdChannel == program.IdChannel && program.IsRunningAt(DateTime.Now))
+            {
+                img.TextColor1 = 0xffff8080;
+            }
+
+            // color personal tv guide in green
+            foreach (PersonalTVGuideMap m in ptvgm)
+            {
+                if (m.IdProgram == program.IdProgram)
+                {
+                img.TextColor1 = 0xff80ff80;
+                //img.TexutureIcon = "stargood.png";
+                break;
+                }
+            }
+
         }
         iPreviousEndXPos = iEndXPos;
       }
@@ -3244,11 +3271,11 @@ namespace TvPlugin
             if (_currentProgram.IsRunningAt(DateTime.Now))
             {
               img.ColourDiffuse = GetColorForProgram(_currentProgram, true);
-            }
+          }
             else if (_currentProgram.EndedBefore(DateTime.Now))
             {
               img.ColourDiffuse = _guideColorProgramEnded;
-            }
+        }
             else
             {
               img.ColourDiffuse = GetColorForProgram(_currentProgram, false);
@@ -3622,7 +3649,7 @@ namespace TvPlugin
     /// <param name="isItemSelected"></param>
     /// <returns>true if a channel was attempted to be tuned; that the channel is or is not playing is not indicated</returns>
     private bool OnSelectItem(bool isItemSelected)
-    {
+    {      
       bool tuneAttempted = false;
       TVHome.Navigator.UpdateCurrentChannel();
       if (_currentProgram == null)
@@ -3835,9 +3862,9 @@ namespace TvPlugin
           if (didRecStart)
           {
             _recordingExpected = _currentProgram.ReferencedChannel();
+            }            
           }
-        }
-      }
+              }
       else
       {
         ShowProgramInfo();
@@ -3964,9 +3991,9 @@ namespace TvPlugin
       // If the program has a movie rating then choose the user specified "movie" genre if it exists.
       MpGenre mpGenre = null;
       if (IsMPAA(program.Classification))
-      {
+        {
         mpGenre = _mpGenres.Find(x => x.IsMovie == true);
-      }
+        }
       else
       {
         mpGenre = _mpGenres.Find(x => x.MappedProgramGenres.Contains(program.Genre));
@@ -3974,8 +4001,8 @@ namespace TvPlugin
 
       // If no mapped mp genre could be found or the found genre is disabled then return the default genre color.
       if (mpGenre == null || !mpGenre.Enabled)
-      {
-        return defaultColor;
+        {
+          return defaultColor;
       }
 
       // Return a valid default color if the specified genre does not have a color association.

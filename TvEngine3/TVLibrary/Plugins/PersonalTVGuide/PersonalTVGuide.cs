@@ -67,6 +67,7 @@ namespace TvEngine
     /// </summary>
     public void UpdatePersonalTVGuide()
     {
+        /*
       if (_debugMode) Log.Info("PersonalTVGuide: Updating list");
       if (!_isUpdating)
       {
@@ -87,6 +88,7 @@ namespace TvEngine
       {
         Log.Error("PersonalTVGuide: Update already started");
       }
+       */
     }
 
     #endregion
