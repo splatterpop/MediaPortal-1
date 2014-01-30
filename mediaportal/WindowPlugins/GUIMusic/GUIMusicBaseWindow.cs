@@ -125,7 +125,6 @@ namespace MediaPortal.GUI.Music
     protected delegate void StartPlayingPlaylistDelegate();
 
     protected bool _strippedPrefixes;
-    protected string _artistPrefixes;
 
     #endregion
 
@@ -220,7 +219,6 @@ namespace MediaPortal.GUI.Music
         _playlistIsCurrent = xmlreader.GetValueAsBool("musicfiles", "playlistIsCurrent", true);
 
         _strippedPrefixes = xmlreader.GetValueAsBool("musicfiles", "stripartistprefixes", false);
-        _artistPrefixes = xmlreader.GetValueAsString("musicfiles", "artistprefixes", "The, Les, Die");
 
         for (int i = 0; i < _sortModes.Length; ++i)
         {
@@ -704,6 +702,64 @@ namespace MediaPortal.GUI.Music
       }
       base.OnPageDestroy(newWindowId);
     }
+
+    protected override void SetView(int selectedViewId)
+    {
+      switch (selectedViewId)
+      {
+        case 0: // Shares
+          {
+            int nNewWindow = (int)Window.WINDOW_MUSIC_FILES;
+            MusicState.StartWindow = nNewWindow;
+            if (nNewWindow != GetID)
+            {
+              GUIWindowManager.ReplaceWindow(nNewWindow);
+            }
+          }
+          break;
+
+        case 4540: // Now playing
+          {
+            int nPlayingNowWindow = (int)Window.WINDOW_MUSIC_PLAYING_NOW;
+
+            GUIMusicPlayingNow guiPlayingNow =
+              (GUIMusicPlayingNow)GUIWindowManager.GetWindow(nPlayingNowWindow);
+
+            if (guiPlayingNow != null)
+            {
+              guiPlayingNow.MusicWindow = this;
+              GUIWindowManager.ActivateWindow(nPlayingNowWindow);
+            }
+          }
+          break;
+
+        default: // a db view
+          {
+            ViewDefinition selectedView = (ViewDefinition)handler.Views[selectedViewId - 1];
+            handler.CurrentView = selectedView.Name;
+            MusicState.View = selectedView.Name;
+            int nNewWindow = (int)Window.WINDOW_MUSIC_GENRE;
+            if (GetID != nNewWindow)
+            {
+              MusicState.StartWindow = nNewWindow;
+              if (nNewWindow != GetID)
+              {
+                GUIWindowManager.ReplaceWindow(nNewWindow);
+              }
+            }
+            else
+            {
+              LoadDirectory(string.Empty);
+              if (facadeLayout.Count <= 0)
+              {
+                GUIControl.FocusControl(GetID, btnLayouts.GetID);
+              }
+            }
+          }
+          break;
+      }
+    }
+
 
     protected void LoadPlayList(string strPlayList)
     {
@@ -1472,8 +1528,7 @@ namespace MediaPortal.GUI.Music
         var artist = song.Artist;
         if (_strippedPrefixes)
         {
-          //Fix ME
-          //artist = AudioscrobblerBase.UndoArtistPrefix(song.Artist);
+          artist = Util.Utils.UndoArtistPrefix(song.Artist);
         }
         ShowAlbumInfo(artist, song.Album);
       }
@@ -1482,8 +1537,7 @@ namespace MediaPortal.GUI.Music
         var artist = song.Artist;
         if (_strippedPrefixes)
         {
-          //Fix ME
-          //artist = AudioscrobblerBase.UndoArtistPrefix(song.Artist);
+          artist = Util.Utils.UndoArtistPrefix(song.Artist);
         }
 
         ShowArtistInfo(artist, song.Album);
@@ -1493,8 +1547,7 @@ namespace MediaPortal.GUI.Music
         var artist = song.AlbumArtist;
         if (_strippedPrefixes)
         {
-          //Fix ME
-          //artist = AudioscrobblerBase.UndoArtistPrefix(song.AlbumArtist);
+          artist = Util.Utils.UndoArtistPrefix(song.AlbumArtist);
         }
 
         ShowArtistInfo(artist, song.Album);
