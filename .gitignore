@@ -13,3 +13,4 @@ Thumbs.db
 Packages
 *.DotSettings
 /Build/NuGet.exe
+/DirectShowFilters/BDReader/bin/Release/vc100.pdb
