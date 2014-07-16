@@ -849,6 +849,8 @@ namespace TvPlugin
         newSchedule.Persist();
         server.OnNewSchedule();
       }
+      GUIMessage msgManualRecord = new GUIMessage(GUIMessage.MessageType.GUI_MSG_MANUAL_RECORDING_STARTED, 0, 0, 0, 0, 0, null);
+      GUIWindowManager.SendMessage(msgManualRecord);
     }
 
     public static bool UseRTSP()
@@ -2026,6 +2028,8 @@ namespace TvPlugin
               case 875:
                 //record current program                  
                 TVProgramInfo.CreateProgram(prog, (int)ScheduleRecordingType.Once, dialogId);
+                GUIMessage msgManualRecord = new GUIMessage(GUIMessage.MessageType.GUI_MSG_MANUAL_RECORDING_STARTED, 0, 0, 0, 0, 0, null);
+                GUIWindowManager.SendMessage(msgManualRecord);
                 return true;
 
               case 876:
@@ -3469,15 +3473,6 @@ namespace TvPlugin
             double dTime = g_Player.Duration - 5;
             g_Player.SeekAbsolute(dTime);
           }
-        }
-        try
-        {
-
-          TvTimeShiftPositionWatcher.SetNewChannel(channel.IdChannel);
-        }
-        catch
-        {
-          //ignore, error already logged
         }
 
         _playbackStopped = false;
